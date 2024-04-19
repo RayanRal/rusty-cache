@@ -6,11 +6,10 @@ pub struct Cache {
 }
 
 impl Cache {
-
     pub fn new() -> Cache {
         return Cache {
             hash_map: HashMap::new(),
-        }
+        };
     }
     pub fn put(&mut self, key: &String, value: &String) {
         self.hash_map.insert(key.to_string(), value.to_string());

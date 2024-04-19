@@ -6,7 +6,7 @@ mod server {
 }
 
 
-use std::{env, io};
+use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -29,15 +29,4 @@ fn main() {
             println!("Invalid run mode. Please use 'server' or 'test'.");
         }
     }
-
-    // core module - has methods to set / get / update cache values
-    // input module, with 2 implementations:
-    // - reads from console
-    // - reads from network
-
-    // normal running mode
-    // daemon process that listens to TCP connections
-    // local cli - separate executable, connects to local server
-
-    // test running mode: local, reads / writes to terminal, purely to test HashMap
 }

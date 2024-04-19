@@ -32,7 +32,6 @@ pub fn run_test_mode() {
                         println!("Called get with: {key}. Value not found")
                     }
                 }
-
             }
             Some(&"exists") => {
                 let key = String::from(parts[1]);
