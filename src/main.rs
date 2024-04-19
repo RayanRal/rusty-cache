@@ -1,4 +1,3 @@
-
 mod server {
     pub mod server;
     pub mod test_mode;
@@ -7,14 +6,9 @@ mod server {
 }
 
 
-use std::net::TcpListener;
 use std::{env, io};
-// use server::server;
-// use server::test_mode;
 
 fn main() {
-    println!("Select");
-
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         println!("Usage: {} <run_mode>", args[0]);
@@ -35,7 +29,7 @@ fn main() {
             println!("Invalid run mode. Please use 'server' or 'test'.");
         }
     }
-    
+
     // core module - has methods to set / get / update cache values
     // input module, with 2 implementations:
     // - reads from console
