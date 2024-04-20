@@ -1,8 +1,10 @@
 mod server {
-    pub mod server;
+    pub mod listener;
     pub mod test_mode;
 
     pub mod cache;
+
+    pub mod control_plane;
 }
 
 
@@ -19,7 +21,7 @@ fn main() {
     match run_mode.as_str() {
         "server" => {
             println!("Running in server mode.");
-            server::server::start_server();
+            server::listener::start_listener();
         }
         "test" => {
             println!("Running cache testing mode.");
