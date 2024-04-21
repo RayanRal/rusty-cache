@@ -1,6 +1,6 @@
-use std::{env};
-use std::io::{stdin, Write};
-use std::net::{Shutdown, TcpStream};
+use std::{env, io};
+use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::net::{TcpStream};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -13,16 +13,19 @@ fn main() {
     // let port = &args[2];
     // let mut stream = TcpStream::connect(format!("{ip}:{port}"))?;
 
+    let mut stream = TcpStream::connect("127.0.0.1:7878").expect("Failed to connect to server");
+    let stream_clone = stream.try_clone().unwrap();
+    let mut reader = BufReader::new(stream);
+    let mut writer = BufWriter::new(stream_clone);
     loop {
-        // TODO: have to find a way to keep stream opened, instead of reopening each time
-        let mut stream = TcpStream::connect("127.0.0.1:7878").expect("Failed to connect to server");
-
         println!("Send the command to server: set, get, exists, exit");
+        let mut request = String::new();
+        io::stdin().read_line(&mut request).unwrap();
+        writer.write(request.as_bytes()).unwrap();
+        writer.flush().unwrap();
 
-        let mut input = String::new();
-        stdin().read_line(&mut input).expect("Failed to read line");
-
-        stream.write_all(input.trim().as_bytes()).expect("Failed to send message");
-        stream.shutdown(Shutdown::Both).unwrap();
+        let mut response = String::new();
+        reader.read_line(&mut response).unwrap();
+        println!("Server response: {}", response.trim());
     }
 }

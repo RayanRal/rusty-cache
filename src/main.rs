@@ -9,9 +9,11 @@ mod server {
 
 
 use std::env;
+use crate::server::cache::Cache;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    let cache = Cache::new();
     if args.len() < 2 {
         println!("Usage: {} <run_mode>", args[0]);
         return;
@@ -21,11 +23,11 @@ fn main() {
     match run_mode.as_str() {
         "server" => {
             println!("Running in server mode.");
-            server::listener::start_listener();
+            server::listener::start_listener(cache);
         }
         "test" => {
             println!("Running cache testing mode.");
-            server::test_mode::run_test_mode();
+            server::test_mode::run_test_mode(cache);
         }
         _ => {
             println!("Invalid run mode. Please use 'server' or 'test'.");

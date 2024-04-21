@@ -1,28 +1,37 @@
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::net::{TcpListener, TcpStream};
-use rayon::{
-    ThreadPoolBuilder};
+use std::sync::{Arc, Mutex};
+use rayon::ThreadPoolBuilder;
+use crate::server::cache::Cache;
+use crate::server::control_plane;
 
-pub fn start_listener() {
+pub fn start_listener(cache: Cache) {
     let port = 7878;// &args[2];
     let listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
+    let shared_cache = Arc::new(Mutex::new(cache));
     let pool = ThreadPoolBuilder::new().num_threads(4).build().unwrap();
 
     for stream in listener.incoming() {
-        let stream = stream.unwrap();
-        pool.spawn(|| {
-            handle_connection(stream)
+        let cache_clone = Arc::clone(&shared_cache);
+        pool.spawn(move || {
+            handle_connection(stream.unwrap(), cache_clone);
         });
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    let http_request: Vec<_> = buf_reader
-        .lines()
-        .map(|result| result.unwrap())
-        .take_while(|line| !line.is_empty())
-        .collect();
+fn handle_connection(stream: TcpStream, cache: Arc<Mutex<Cache>>) {
+    let stream_clone = stream.try_clone().unwrap();
+    let mut reader = BufReader::new(stream);
+    let mut writer = BufWriter::new(stream_clone);
+    loop {
+        let mut s = String::new();
+        reader.read_line(&mut s).unwrap();
+        println!("Got command: {s}");
 
-    println!("Got request: {:#?}", http_request);
+        let mut cache = cache.lock().unwrap();
+        control_plane::process_command(&s, &mut cache);
+
+        writer.write("Ack\n".as_bytes()).unwrap();
+        writer.flush().unwrap();
+    }
 }
