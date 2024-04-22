@@ -1,21 +1,16 @@
 use log::warn;
 use crate::server::cache::Cache;
 use crate::server::commands;
+use crate::server::commands::CommandEnum;
 
-pub fn process_command(input: &String, cache: &mut Cache) -> Box<dyn commands::CommandResponse> {
-    let parts: Vec<&str> = input.split_whitespace().collect();
-    let command = parts.get(0);
-
+pub fn process_command(command: CommandEnum, cache: &mut Cache) -> Box<dyn commands::CommandResponse> {
     return match command {
-        Some(&"set") => {
-            let key = String::from(parts[1]);
-            let value = String::from(parts[2]);
+        CommandEnum::PutCommand(commands::Put { key, value }) => {
             cache.put(&key, &value);
             let response = commands::PutResponse {};
-            Box::new(response) // "Called set with: {key} -> {value}");
+            Box::new(response)
         }
-        Some(&"get") => {
-            let key = String::from(parts[1]);
+        CommandEnum::GetCommand(commands::Get { key }) => {
             let value = cache.get(&key).map(|s| s.clone());
             let response = commands::GetResponse {
                 key,
@@ -23,19 +18,14 @@ pub fn process_command(input: &String, cache: &mut Cache) -> Box<dyn commands::C
             };
             Box::new(response)
         }
-        Some(&"exists") => {
-            let key = String::from(parts[1]);
+        CommandEnum::ExistsCommand(commands::Exists { key }) => {
             let exists = cache.exists(&key);
             let response = commands::ExistsResponse { exists };
             Box::new(response)
         }
-        Some(&"exit") => {
+        CommandEnum::ExitCommand(commands::Exit {}) => {
             warn!("Received EXIT command. Wrapping up.");
             panic!("Received EXIT command");
-        }
-        _ => {
-            warn!("Command {command:#?} not found.");
-            Box::new(commands::CommandNotFoundResponse {})
         }
     };
 }

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use log::info;
 use rayon::ThreadPoolBuilder;
 use crate::server::cache::Cache;
-use crate::server::control_plane;
+use crate::server::{commands, control_plane};
 
 pub fn start_listener(cache: Cache) {
     let port = 7878;// &args[2];
@@ -28,9 +28,10 @@ fn handle_connection(stream: TcpStream, cache: Arc<Mutex<Cache>>) {
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
         info!("Received command: {s}");
+        let command = commands::deserialize_command(s);
 
         let mut cache = cache.lock().unwrap();
-        let response = control_plane::process_command(&s, &mut cache);
+        let response = control_plane::process_command(command, &mut cache);
         let mut response_str = response.serialize();
         response_str.push_str("\n");
 

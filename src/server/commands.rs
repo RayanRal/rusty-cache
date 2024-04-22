@@ -1,30 +1,33 @@
-pub trait Command {
-    // fn execute(&self);
+pub enum CommandEnum {
+    PutCommand(Put),
+    GetCommand(Get),
+    ExistsCommand(Exists),
+    ExitCommand(Exit),
 }
 
 // Define concrete command types
 pub struct Put {
-    key: String,
-    value: String,
+    pub key: String,
+    pub value: String,
 }
 
 pub struct Get {
-    key: String,
+    pub key: String,
 }
 
 pub struct Exists {
-    key: String,
+    pub key: String,
 }
 
 pub struct Exit {}
 
-impl Command for Put {}
-
-impl Command for Get {}
-
-impl Command for Exists {}
-
-impl Command for Exit {}
+// impl Command for PutCommand {}
+//
+// impl Command for GetCommand {}
+//
+// impl Command for ExistsCommand {}
+//
+// impl Command for ExitCommand {}
 
 
 pub trait CommandResponse {
@@ -80,4 +83,32 @@ impl CommandResponse for CommandNotFoundResponse {
     fn serialize(&self) -> String {
         return String::from("Command not found");
     }
+}
+
+pub fn deserialize_command(input: String) -> CommandEnum {
+    let parts: Vec<&str> = input.split_whitespace().collect();
+    let command = parts.get(0);
+
+    return match command {
+        Some(&"set") => {
+            let key = String::from(parts[1]);
+            let value = String::from(parts[2]);
+            CommandEnum::PutCommand(Put { key, value })
+        }
+        Some(&"get") => {
+            let key = String::from(parts[1]);
+            CommandEnum::GetCommand(Get { key })
+        }
+        Some(&"exists") => {
+            let key = String::from(parts[1]);
+            CommandEnum::ExistsCommand(Exists { key })
+        }
+        Some(&"exit") => {
+            CommandEnum::ExitCommand(Exit {})
+        }
+        _ => {
+            // TODO: proper handling
+            panic!("Command {command:#?} not found.");
+        }
+    };
 }
