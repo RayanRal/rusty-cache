@@ -5,13 +5,21 @@ mod server {
     pub mod cache;
 
     pub mod control_plane;
+
+    pub mod commands;
 }
 
 
 use std::env;
 use crate::server::cache::Cache;
+use log::LevelFilter;
+use env_logger::Builder;
 
 fn main() {
+    Builder::new()
+        .filter_level(LevelFilter::Debug)
+        .init();
+
     let args: Vec<String> = env::args().collect();
     let cache = Cache::new();
     if args.len() < 2 {

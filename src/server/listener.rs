@@ -29,7 +29,7 @@ fn handle_connection(stream: TcpStream, cache: Arc<Mutex<Cache>>) {
         println!("Got command: {s}");
 
         let mut cache = cache.lock().unwrap();
-        control_plane::process_command(&s, &mut cache);
+        let response = control_plane::process_command(&s, &mut cache);
 
         writer.write("Ack\n".as_bytes()).unwrap();
         writer.flush().unwrap();

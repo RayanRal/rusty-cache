@@ -1,40 +1,41 @@
+use log::warn;
 use crate::server::cache::Cache;
+use crate::server::commands;
 
-pub fn process_command(input: &String, cache: &mut Cache) {
+pub fn process_command(input: &String, cache: &mut Cache) -> Box<dyn commands::CommandResponse> {
     let parts: Vec<&str> = input.split_whitespace().collect();
     let command = parts.get(0);
 
-    match command {
+    return match command {
         Some(&"set") => {
             let key = String::from(parts[1]);
             let value = String::from(parts[2]);
             cache.put(&key, &value);
-            println!("Called set with: {key} -> {value}");
+            let response = commands::PutResponse {};
+            Box::new(response) // "Called set with: {key} -> {value}");
         }
         Some(&"get") => {
             let key = String::from(parts[1]);
-            let value = cache.get(&key);
-            match value {
-                Some(&ref v) => {
-                    println!("Called get with: {key}: got {v}")
-                }
-                None => {
-                    println!("Called get with: {key}. Value not found")
-                }
-            }
+            let value = cache.get(&key).map(|s| s.clone());
+            let response = commands::GetResponse {
+                key,
+                value,
+            };
+            Box::new(response)
         }
         Some(&"exists") => {
             let key = String::from(parts[1]);
-            let does_exist = cache.exists(&key);
-            println!("Called exists with: {key} - found? {does_exist}");
+            let exists = cache.exists(&key);
+            let response = commands::ExistsResponse { exists };
+            Box::new(response)
         }
         Some(&"exit") => {
-            println!("Wrapping up");
-            // todo
-            return;
+            warn!("Received EXIT command. Wrapping up.");
+            panic!("Received EXIT command");
         }
         _ => {
-            println!("Invalid command.");
+            warn!("Command {command:#?} not found.");
+            Box::new(commands::CommandNotFoundResponse {})
         }
-    }
+    };
 }
