@@ -12,7 +12,7 @@ mod server {
 
 use std::env;
 use crate::server::cache::Cache;
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use env_logger::Builder;
 
 fn main() {
@@ -23,22 +23,21 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let cache = Cache::new();
     if args.len() < 2 {
-        println!("Usage: {} <run_mode>", args[0]);
-        return;
+        panic!("Usage: {} <run_mode>", args[0]);
     }
 
     let run_mode = &args[1];
     match run_mode.as_str() {
         "server" => {
-            println!("Running in server mode.");
+            info!("Running in server mode.");
             server::listener::start_listener(cache);
         }
         "test" => {
-            println!("Running cache testing mode.");
+            info!("Running cache testing mode.");
             server::test_mode::run_test_mode(cache);
         }
         _ => {
-            println!("Invalid run mode. Please use 'server' or 'test'.");
+            panic!("Invalid run mode. Please use 'server' or 'test'.");
         }
     }
 }

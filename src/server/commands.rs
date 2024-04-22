@@ -27,7 +27,9 @@ impl Command for Exists {}
 impl Command for Exit {}
 
 
-pub trait CommandResponse {}
+pub trait CommandResponse {
+    fn serialize(&self) -> String;
+}
 
 pub struct PutResponse {}
 
@@ -42,17 +44,40 @@ pub struct ExistsResponse {
 
 pub struct CommandNotFoundResponse {}
 
-impl CommandResponse for PutResponse {}
+impl CommandResponse for PutResponse {
+    fn serialize(&self) -> String {
+        return String::from("OK");
+    }
+}
 
-impl CommandResponse for GetResponse {}
+impl CommandResponse for GetResponse {
+    fn serialize(&self) -> String {
+        return match &self.value {
+            Some(v) => {
+                let message = format!("Got {}", v);
+                String::from(message)
+            }
+            None => {
+                String::from("Key not found")
+            }
+        };
+    }
+}
 
-impl CommandResponse for ExistsResponse {}
 
-impl CommandResponse for CommandNotFoundResponse {}
-//
-// // Implement the Command trait for each concrete command type
-// impl Command for AddCommand {
-//     fn execute(&self) {
-//         println!("Executing AddCommand: {} + {} = {}", self.x, self.y, self.x + self.y);
-//     }
-// }
+impl CommandResponse for ExistsResponse {
+    fn serialize(&self) -> String {
+        return match &self.exists {
+            true => {
+                String::from("OK")
+            }
+            false => String::from("Key not found")
+        };
+    }
+}
+
+impl CommandResponse for CommandNotFoundResponse {
+    fn serialize(&self) -> String {
+        return String::from("Command not found");
+    }
+}

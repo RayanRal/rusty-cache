@@ -1,6 +1,7 @@
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
+use log::info;
 use rayon::ThreadPoolBuilder;
 use crate::server::cache::Cache;
 use crate::server::control_plane;
@@ -26,12 +27,14 @@ fn handle_connection(stream: TcpStream, cache: Arc<Mutex<Cache>>) {
     loop {
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
-        println!("Got command: {s}");
+        info!("Received command: {s}");
 
         let mut cache = cache.lock().unwrap();
         let response = control_plane::process_command(&s, &mut cache);
+        let mut response_str = response.serialize();
+        response_str.push_str("\n");
 
-        writer.write("Ack\n".as_bytes()).unwrap();
+        writer.write(response_str.as_bytes()).unwrap();
         writer.flush().unwrap();
     }
 }

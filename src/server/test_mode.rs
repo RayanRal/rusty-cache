@@ -1,11 +1,12 @@
 use std::io;
+use log::info;
 use crate::server::cache::Cache;
 use crate::server::control_plane;
 
 
 pub fn run_test_mode(mut cache: Cache) {
     loop {
-        println!("Enter command: set, get, exists, exit");
+        info!("Enter command: set, get, exists, exit");
         let mut input = String::new();
         io::stdin()
             .read_line(&mut input)
