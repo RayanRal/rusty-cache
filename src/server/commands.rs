@@ -5,7 +5,6 @@ pub enum CommandEnum {
     ExitCommand(Exit),
 }
 
-// Define concrete command types
 pub struct Put {
     pub key: String,
     pub value: String,
@@ -20,14 +19,6 @@ pub struct Exists {
 }
 
 pub struct Exit {}
-
-// impl Command for PutCommand {}
-//
-// impl Command for GetCommand {}
-//
-// impl Command for ExistsCommand {}
-//
-// impl Command for ExitCommand {}
 
 
 pub trait CommandResponse {
