@@ -1,4 +1,4 @@
-use log::warn;
+use log::{info, warn};
 use crate::server::cache::Cache;
 use crate::server::commands;
 use crate::server::commands::CommandEnum;

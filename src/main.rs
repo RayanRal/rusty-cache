@@ -7,6 +7,8 @@ mod server {
     pub mod control_plane;
 
     pub mod commands;
+
+    pub mod evictor;
 }
 
 

@@ -13,7 +13,7 @@ fn main() {
     // let port = &args[2];
     // let mut stream = TcpStream::connect(format!("{ip}:{port}"))?;
 
-    let mut stream = TcpStream::connect("127.0.0.1:7878").expect("Failed to connect to server");
+    let stream = TcpStream::connect("127.0.0.1:7878").expect("Failed to connect to server");
     let stream_clone = stream.try_clone().unwrap();
     let mut reader = BufReader::new(stream);
     let mut writer = BufWriter::new(stream_clone);
