@@ -27,7 +27,7 @@ fn main() {
         info!("Send the command to server: set, get, exists, exit");
         let mut request = String::new();
         io::stdin().read_line(&mut request).unwrap();
-        writer.write(request.as_bytes()).unwrap();
+        writer.write_all(request.as_bytes()).unwrap();
         writer.flush().unwrap();
 
         let mut response = String::new();

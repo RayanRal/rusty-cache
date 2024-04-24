@@ -41,13 +41,13 @@ pub struct CommandNotFoundResponse {}
 
 impl CommandResponse for PutResponse {
     fn serialize(&self) -> String {
-        return String::from("OK");
+        String::from("OK")
     }
 }
 
 impl CommandResponse for GetResponse {
     fn serialize(&self) -> String {
-        return match &self.value {
+        match &self.value {
             Some(v) => {
                 let message = format!("Got {}", v);
                 String::from(message)
@@ -55,25 +55,25 @@ impl CommandResponse for GetResponse {
             None => {
                 String::from("Key not found")
             }
-        };
+        }
     }
 }
 
 
 impl CommandResponse for ExistsResponse {
     fn serialize(&self) -> String {
-        return match &self.exists {
+        match &self.exists {
             true => {
                 String::from("OK")
             }
             false => String::from("Key not found")
-        };
+        }
     }
 }
 
 impl CommandResponse for CommandNotFoundResponse {
     fn serialize(&self) -> String {
-        return String::from("Command not found");
+        String::from("Command not found")
     }
 }
 
@@ -88,7 +88,7 @@ pub fn deserialize_command(input: String) -> CommandEnum {
             let key = String::from(parts[1]);
             let value = String::from(parts[2]);
             let ttl = if let Some(ttl_value) = parts.get(3) {
-                ttl_value.parse::<u64>().unwrap_or_else(|_| {
+                ttl_value.parse::<u64>().unwrap_or({
                     DEFAULT_TTL
                 })
             } else { DEFAULT_TTL };

@@ -40,11 +40,10 @@ impl Cache {
             }
         });
 
-        let cache = Cache {
+        Cache {
             hash_map,
             ttl_queue,
-        };
-        return cache;
+        }
     }
     pub fn put(&mut self, key: &String, value: &String, ttl: u64) {
         self.hash_map.lock().unwrap().insert(key.to_string(), value.to_string());
@@ -54,7 +53,7 @@ impl Cache {
     }
 
     pub fn get(&self, key: &String) -> Option<String> {
-        return self.hash_map.lock().unwrap().get(key).map(|s| s.clone());
+        return self.hash_map.lock().unwrap().get(key).cloned();
     }
 
     pub fn exists(&self, key: &String) -> bool {

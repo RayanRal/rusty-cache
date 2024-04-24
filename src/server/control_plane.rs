@@ -4,7 +4,7 @@ use crate::server::commands;
 use crate::server::commands::CommandEnum;
 
 pub fn process_command(command: CommandEnum, cache: &mut Cache) -> Box<dyn commands::CommandResponse> {
-    return match command {
+    match command {
         CommandEnum::PutCommand(commands::Put { key, value, ttl }) => {
             cache.put(&key, &value, ttl);
             let response = commands::PutResponse {};
@@ -27,5 +27,5 @@ pub fn process_command(command: CommandEnum, cache: &mut Cache) -> Box<dyn comma
             warn!("Received EXIT command. Wrapping up.");
             panic!("Received EXIT command");
         }
-    };
+    }
 }

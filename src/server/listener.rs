@@ -33,9 +33,9 @@ fn handle_connection(stream: TcpStream, cache: Arc<Mutex<Cache>>) {
         let mut cache = cache.lock().unwrap();
         let response = control_plane::process_command(command, &mut cache);
         let mut response_str = response.serialize();
-        response_str.push_str("\n");
+        response_str.push('\n');
 
-        writer.write(response_str.as_bytes()).unwrap();
+        writer.write_all(response_str.as_bytes()).unwrap();
         writer.flush().unwrap();
     }
 }

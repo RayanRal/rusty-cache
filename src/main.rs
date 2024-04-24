@@ -10,8 +10,7 @@ mod server {
 }
 
 
-use std::env;
-use clap::{Parser, Subcommand};
+use clap::{Parser};
 use crate::server::cache::Cache;
 use log::{info, LevelFilter};
 use env_logger::Builder;
