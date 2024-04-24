@@ -1,17 +1,17 @@
-use log::{info, warn};
+use log::warn;
 use crate::server::cache::Cache;
 use crate::server::commands;
 use crate::server::commands::CommandEnum;
 
 pub fn process_command(command: CommandEnum, cache: &mut Cache) -> Box<dyn commands::CommandResponse> {
     return match command {
-        CommandEnum::PutCommand(commands::Put { key, value }) => {
-            cache.put(&key, &value);
+        CommandEnum::PutCommand(commands::Put { key, value, ttl }) => {
+            cache.put(&key, &value, ttl);
             let response = commands::PutResponse {};
             Box::new(response)
         }
         CommandEnum::GetCommand(commands::Get { key }) => {
-            let value = cache.get(&key).map(|s| s.clone());
+            let value = cache.get(&key);
             let response = commands::GetResponse {
                 key,
                 value,

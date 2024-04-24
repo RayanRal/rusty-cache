@@ -4,12 +4,14 @@ use std::ops::Add;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
-use log::info;
+use log::debug;
 use priority_queue::PriorityQueue;
 
 
 pub struct Cache {
     hash_map: Arc<Mutex<HashMap<String, String>>>,
+    // this design makes cache itself tightly coupled to eviction mechanism
+    // this is not ideal, and should be refactored out later
     ttl_queue: Arc<Mutex<PriorityQueue<String, Reverse<SystemTime>>>>,
 }
 
@@ -28,16 +30,15 @@ impl Cache {
                 let cur_time = SystemTime::now();
                 while let Some((key, expiration_time)) = ttl_queue_clone.lock().unwrap().peek() {
                     if expiration_time.0 >= cur_time {
-                        info!("It's not yet time to expire {key}");
+                        debug!("It's not yet time to expire {key}");
                         break;
                     }
-                    info!("{key} expired, removing");
+                    debug!("{key} expired, removing");
                     hash_map_clone.lock().unwrap().remove(key);
                     ttl_queue_clone.lock().unwrap().pop();
                 }
             }
         });
-
 
         let cache = Cache {
             hash_map,
@@ -45,9 +46,10 @@ impl Cache {
         };
         return cache;
     }
-    pub fn put(&mut self, key: &String, value: &String) {
+    pub fn put(&mut self, key: &String, value: &String, ttl: u64) {
         self.hash_map.lock().unwrap().insert(key.to_string(), value.to_string());
-        let expiration_time = SystemTime::now().add(Duration::from_secs(15));
+        let expiration_time = SystemTime::now().add(Duration::from_secs(ttl));
+        // pushing to the queue existing key overwrites its expiration time
         self.ttl_queue.lock().unwrap().push(key.to_string(), Reverse(expiration_time));
     }
 

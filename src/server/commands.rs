@@ -8,6 +8,7 @@ pub enum CommandEnum {
 pub struct Put {
     pub key: String,
     pub value: String,
+    pub ttl: u64,
 }
 
 pub struct Get {
@@ -76,6 +77,8 @@ impl CommandResponse for CommandNotFoundResponse {
     }
 }
 
+pub const DEFAULT_TTL: u64 = 60;
+
 pub fn deserialize_command(input: String) -> CommandEnum {
     let parts: Vec<&str> = input.split_whitespace().collect();
     let command = parts.get(0);
@@ -84,7 +87,12 @@ pub fn deserialize_command(input: String) -> CommandEnum {
         Some(&"set") => {
             let key = String::from(parts[1]);
             let value = String::from(parts[2]);
-            CommandEnum::PutCommand(Put { key, value })
+            let ttl = if let Some(ttl_value) = parts.get(3) {
+                ttl_value.parse::<u64>().unwrap_or_else(|_| {
+                    DEFAULT_TTL
+                })
+            } else { DEFAULT_TTL };
+            CommandEnum::PutCommand(Put { key, value, ttl })
         }
         Some(&"get") => {
             let key = String::from(parts[1]);
