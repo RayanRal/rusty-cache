@@ -1,26 +1,17 @@
 pub enum CommandEnum {
-    PutCommand(Put),
-    GetCommand(Get),
-    ExistsCommand(Exists),
-    ExitCommand(Exit),
+    Put {
+        key: String,
+        value: String,
+        ttl: u64,
+    },
+    Get {
+        key: String,
+    },
+    Exists {
+        key: String,
+    },
+    Exit,
 }
-
-pub struct Put {
-    pub key: String,
-    pub value: String,
-    pub ttl: u64,
-}
-
-pub struct Get {
-    pub key: String,
-}
-
-pub struct Exists {
-    pub key: String,
-}
-
-pub struct Exit {}
-
 
 pub trait CommandResponse {
     fn serialize(&self) -> String;
@@ -92,18 +83,18 @@ pub fn deserialize_command(input: String) -> CommandEnum {
                     DEFAULT_TTL
                 })
             } else { DEFAULT_TTL };
-            CommandEnum::PutCommand(Put { key, value, ttl })
+            CommandEnum::Put { key, value, ttl }
         }
         Some(&"get") => {
             let key = String::from(parts[1]);
-            CommandEnum::GetCommand(Get { key })
+            CommandEnum::Get { key }
         }
         Some(&"exists") => {
             let key = String::from(parts[1]);
-            CommandEnum::ExistsCommand(Exists { key })
+            CommandEnum::Exists { key }
         }
         Some(&"exit") => {
-            CommandEnum::ExitCommand(Exit {})
+            CommandEnum::Exit {}
         }
         _ => {
             // TODO: proper handling

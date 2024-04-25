@@ -5,12 +5,12 @@ use crate::server::commands::CommandEnum;
 
 pub fn process_command(command: CommandEnum, cache: &mut Cache) -> Box<dyn commands::CommandResponse> {
     match command {
-        CommandEnum::PutCommand(commands::Put { key, value, ttl }) => {
+        CommandEnum::Put { key, value, ttl } => {
             cache.put(&key, &value, ttl);
             let response = commands::PutResponse {};
             Box::new(response)
         }
-        CommandEnum::GetCommand(commands::Get { key }) => {
+        CommandEnum::Get { key } => {
             let value = cache.get(&key);
             let response = commands::GetResponse {
                 key,
@@ -18,12 +18,12 @@ pub fn process_command(command: CommandEnum, cache: &mut Cache) -> Box<dyn comma
             };
             Box::new(response)
         }
-        CommandEnum::ExistsCommand(commands::Exists { key }) => {
+        CommandEnum::Exists { key } => {
             let exists = cache.exists(&key);
             let response = commands::ExistsResponse { exists };
             Box::new(response)
         }
-        CommandEnum::ExitCommand(commands::Exit {}) => {
+        CommandEnum::Exit {} => {
             warn!("Received EXIT command. Wrapping up.");
             panic!("Received EXIT command");
         }
