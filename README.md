@@ -29,16 +29,26 @@ It's almost first Rust code I'm writing in my life.
     - gets a list of servers on the start
     - keeps some table of server <> key mapping (?)
 
-### Details - server
+### Details - server addition
 
-- server 1 comes up, it handles all requests
-- it has open server channel
-- server has hashmap bucket_id (16) -> list of keys
-- server 1 has a map bucket -> server
-- server 2 comes up, connects to server 1, sends `get_buckets_to_handle` request
-- server 1 updates bucket -> server map, assigns buckets to server 2
-- server 1 calls `put` with each key for server 2
-- when client sends `get` - server 1 checks bucket -> list of keys and bucket -> server tables, and replies with `move`
+- server 1 comes up, 1 server in cluster, handles all requests
+  - it has server channel and client channel
+  - server has hashmap bucket_id (16) -> list of keys
+- server has a map bucket_id -> server ip
+- server 2 comes up, connects to server 1, sends `join_cluster` request
+- server 1 updates bucket_id -> server map, assigns buckets to server 2
+  - need to update other servers with fresh `cluster_state`
+- server 1 calls `bulk_put` with each key for server 2
+
+### Details - client-server interaction
+- client can join any server in the cluster
+- when client sends `get` request, server
+  - checks if it can serve the request
+  - if it can't, it acts as a proxy, sending request to server 2, and returning response
+- when client sends `put`
+  - server checks if it can save the key
+  - if not, it proxies put to another server
+- this makes client totally oblivious to state of cluster and interactions with it
 
 ### What can be added further
 

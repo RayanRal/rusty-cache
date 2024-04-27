@@ -1,31 +1,41 @@
 use log::warn;
 use crate::server::cache::Cache;
-use crate::server::commands;
-use crate::server::commands::CommandEnum;
+use crate::server::commands::{CmdResponse, CommandsEnum};
+use crate::server::{commands, requests};
+use crate::server::requests::RequestsEnum;
 
-pub fn process_command(command: CommandEnum, cache: &mut Cache) -> Box<dyn commands::CommandResponse> {
-    match command {
-        CommandEnum::Put { key, value, ttl } => {
+pub fn process_client_request(request: RequestsEnum, cache: &mut Cache) -> Box<dyn requests::ReqResponse> {
+    match request {
+        RequestsEnum::Put { key, value, ttl } => {
             cache.put(&key, &value, ttl);
-            let response = commands::PutResponse {};
+            let response = requests::PutResponse {};
             Box::new(response)
         }
-        CommandEnum::Get { key } => {
+        RequestsEnum::Get { key } => {
             let value = cache.get(&key);
-            let response = commands::GetResponse {
+            let response = requests::GetResponse {
                 key,
                 value,
             };
             Box::new(response)
         }
-        CommandEnum::Exists { key } => {
+        RequestsEnum::Exists { key } => {
             let exists = cache.exists(&key);
-            let response = commands::ExistsResponse { exists };
+            let response = requests::ExistsResponse { exists };
             Box::new(response)
         }
-        CommandEnum::Exit {} => {
+        RequestsEnum::Exit {} => {
             warn!("Received EXIT command. Wrapping up.");
             panic!("Received EXIT command");
         }
+    }
+}
+
+pub fn process_command(command: CommandsEnum, cache: &mut Cache) {
+    match command {
+        CommandsEnum::JoinCluster { .. } => {}
+        CommandsEnum::LeaveCluster { .. } => {}
+        CommandsEnum::GetClusterState { .. } => {}
+        CommandsEnum::GetKeysForBucket { .. } => {}
     }
 }
