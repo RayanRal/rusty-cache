@@ -24,7 +24,6 @@ use crate::server::cluster::Cluster;
 #[command(version, about, long_about = None)]
 struct Cli {
     run_mode: String,
-
 }
 
 
@@ -47,9 +46,12 @@ fn main() {
             info!("Running in server mode.");
             server::listener::start_server(cache, cluster_status, client_port, server_port);
         }
+        "join" => {
+            info!("Server mode, joining another server:");
+        }
         "test" => {
             info!("Running cache testing mode.");
-            server::local_test::run_test_mode(cache);
+            server::local_test::run_test_mode(cache, cluster_status);
         }
         _ => {
             panic!("Invalid run mode. Please use 'server' or 'test'.");

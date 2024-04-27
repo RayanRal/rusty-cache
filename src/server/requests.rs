@@ -28,10 +28,6 @@ pub struct ExistsResponse {
     pub exists: bool,
 }
 
-pub struct MoveResponse {
-    pub ip: String,
-}
-
 pub struct CommandNotFoundResponse {}
 
 impl ReqResponse for PutResponse {
@@ -44,8 +40,7 @@ impl ReqResponse for GetResponse {
     fn serialize(&self) -> String {
         match &self.value {
             Some(v) => {
-                let message = format!("Got {}", v);
-                String::from(message)
+                format!("Got {}", v)
             }
             None => {
                 String::from("Key not found")
@@ -76,7 +71,7 @@ pub const DEFAULT_TTL: u64 = 60;
 
 pub fn deserialize_request(input: String) -> RequestsEnum {
     let parts: Vec<&str> = input.split_whitespace().collect();
-    let command = parts.get(0);
+    let command = parts.first();
 
     return match command {
         Some(&"set") => {
@@ -102,7 +97,7 @@ pub fn deserialize_request(input: String) -> RequestsEnum {
         }
         _ => {
             // TODO: proper handling
-            panic!("Command {command:#?} not found.");
+            panic!("Request {command:#?} not found.");
         }
     };
 }

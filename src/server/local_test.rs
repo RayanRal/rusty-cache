@@ -2,9 +2,10 @@ use std::io;
 use log::info;
 use crate::server::cache::Cache;
 use crate::server::{requests, control_plane};
+use crate::server::cluster::Cluster;
 
 
-pub fn run_test_mode(mut cache: Cache) {
+pub fn run_test_mode(mut cache: Cache, mut cluster: Cluster) {
     loop {
         info!("Enter command: set, get, exists, exit");
         let mut input = String::new();
@@ -12,6 +13,6 @@ pub fn run_test_mode(mut cache: Cache) {
             .read_line(&mut input)
             .expect("Failed to read line");
         let command = requests::deserialize_request(input);
-        control_plane::process_client_request(command, &mut cache);
+        control_plane::process_client_request(command, &mut cache, &mut cluster);
     }
 }
