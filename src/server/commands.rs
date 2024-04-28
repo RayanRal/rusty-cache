@@ -1,13 +1,17 @@
+use std::collections::HashMap;
+use std::net::IpAddr;
+use crate::server::cache::Key;
+use crate::server::cluster::{BucketId, NodeId};
 use crate::server::commands::CommandsEnum::{GetClusterState, GetKeysForBucket, JoinCluster, LeaveCluster};
 
 pub enum CommandsEnum {
     JoinCluster {
-        server_id: String,
+        server_id: NodeId,
     },
     LeaveCluster {},
     GetClusterState {},
     GetKeysForBucket {
-        bucket_id: String,
+        bucket_id: BucketId,
     },
 }
 
@@ -19,12 +23,12 @@ pub trait CmdResponse {
 pub struct OkResponse {}
 
 pub struct ClusterState {
-    // todo: for now it's useless, just to see that cluster exists
-    pub node_ids: Vec<String>
+    pub nodes: HashMap<NodeId, IpAddr>,
+    pub nodes_to_buckets: HashMap<BucketId, NodeId>,
 }
 
 pub struct KeysListResponse {
-    pub keys: Vec<String>,
+    pub keys: Vec<Key>,
 }
 
 impl CmdResponse for OkResponse {
@@ -59,7 +63,7 @@ pub fn deserialize_command(input: String) -> CommandsEnum {
             GetClusterState {}
         }
         "keys" => {
-            let bucket_id = String::from("");
+            let bucket_id = 2;
             GetKeysForBucket {
                 bucket_id
             }

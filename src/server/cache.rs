@@ -8,17 +8,20 @@ use log::debug;
 use priority_queue::PriorityQueue;
 
 
+pub type Key = String;
+pub type Value = String;
+
 pub struct Cache {
-    hash_map: Arc<Mutex<HashMap<String, String>>>,
+    hash_map: Arc<Mutex<HashMap<Key, Value>>>,
     // this design makes cache itself tightly coupled to eviction mechanism
     // this is not ideal, and should be refactored out later
-    ttl_queue: Arc<Mutex<PriorityQueue<String, Reverse<SystemTime>>>>,
+    ttl_queue: Arc<Mutex<PriorityQueue<Key, Reverse<SystemTime>>>>,
 }
 
 impl Cache {
     pub fn new() -> Cache {
-        let hash_map: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
-        let ttl_queue: Arc<Mutex<PriorityQueue<String, Reverse<SystemTime>>>> = Arc::new(Mutex::new(PriorityQueue::new()));
+        let hash_map = Arc::new(Mutex::new(HashMap::new()));
+        let ttl_queue: Arc<Mutex<PriorityQueue<Key, Reverse<SystemTime>>>> = Arc::new(Mutex::new(PriorityQueue::new()));
 
         let hash_map_clone = hash_map.clone();
         let ttl_queue_clone = ttl_queue.clone();
@@ -45,18 +48,18 @@ impl Cache {
             ttl_queue,
         }
     }
-    pub fn put(&mut self, key: &String, value: &String, ttl: u64) {
+    pub fn put(&mut self, key: &Key, value: &Value, ttl: u64) {
         self.hash_map.lock().unwrap().insert(key.to_string(), value.to_string());
         let expiration_time = SystemTime::now().add(Duration::from_secs(ttl));
         // pushing to the queue existing key overwrites its expiration time
         self.ttl_queue.lock().unwrap().push(key.to_string(), Reverse(expiration_time));
     }
 
-    pub fn get(&self, key: &String) -> Option<String> {
+    pub fn get(&self, key: &Key) -> Option<Value> {
         return self.hash_map.lock().unwrap().get(key).cloned();
     }
 
-    pub fn exists(&self, key: &String) -> bool {
+    pub fn exists(&self, key: &Key) -> bool {
         return self.hash_map.lock().unwrap().contains_key(key);
     }
 }

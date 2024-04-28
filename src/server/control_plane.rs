@@ -60,13 +60,14 @@ pub fn process_client_request(request: RequestsEnum, cache: &mut Cache, cluster:
 pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, tcp_stream: TcpStream) -> Box<dyn CmdResponse> {
     match command {
         CommandsEnum::JoinCluster { server_id } => {
-            cluster.add_node(server_id, tcp_stream);
+            cluster.add_node_connection(server_id, tcp_stream);
             Box::new(OkResponse {})
         }
         CommandsEnum::LeaveCluster { .. } => { Box::new(OkResponse {}) }
         CommandsEnum::GetClusterState { .. } => {
-            let node_ids = cluster.get_node_ids();
-            Box::new(ClusterState { node_ids })
+            let nodes = cluster.get_connected_nodes_ips();
+            let nodes_to_buckets = cluster.bucket_node_assignments.clone().lock().unwrap().clone();
+            Box::new(ClusterState { nodes, nodes_to_buckets })
         }
         CommandsEnum::GetKeysForBucket { bucket_id } => {
             let keys = cluster.get_all_keys_for_bucket(bucket_id);

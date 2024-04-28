@@ -1,14 +1,16 @@
+use crate::server::cache::{Key, Value};
+
 pub enum RequestsEnum {
     Put {
-        key: String,
-        value: String,
+        key: Key,
+        value: Value,
         ttl: u64,
     },
     Get {
-        key: String,
+        key: Key,
     },
     Exists {
-        key: String,
+        key: Key,
     },
     Exit,
 }
@@ -20,8 +22,8 @@ pub trait ReqResponse {
 pub struct PutResponse {}
 
 pub struct GetResponse {
-    pub key: String,
-    pub value: Option<String>,
+    pub key: Key,
+    pub value: Option<Value>,
 }
 
 pub struct ExistsResponse {

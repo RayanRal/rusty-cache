@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{IpAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use log::info;
@@ -12,9 +12,9 @@ pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_por
     let client_listener = TcpListener::bind(format!("127.0.0.1:{client_port}")).unwrap();
     let server_listener = TcpListener::bind(format!("127.0.0.1:{server_port}")).unwrap();
 
-    let shared_cluster_status = Arc::new(Mutex::new(cluster));
-    let client_cluster = Arc::clone(&shared_cluster_status);
-    let server_cluster = Arc::clone(&shared_cluster_status);
+    let cluster_state = Arc::new(Mutex::new(cluster));
+    let client_cluster = Arc::clone(&cluster_state);
+    let server_cluster = Arc::clone(&cluster_state);
 
     let shared_cache = Arc::new(Mutex::new(cache));
     let client_cache_clone = Arc::clone(&shared_cache);
@@ -86,4 +86,8 @@ fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
         // writer.write_all(response_str.as_bytes()).unwrap();
         // writer.flush().unwrap();
     }
+}
+
+fn handle_cluster_join(main_node_ip: IpAddr) {
+    
 }
