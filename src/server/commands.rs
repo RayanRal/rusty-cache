@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use crate::server::cache::Key;
 use crate::server::cluster::{BucketId, NodeId};
 use crate::server::commands::CommandsEnum::{GetClusterState, GetKeysForBucket, JoinCluster, LeaveCluster};
@@ -25,7 +25,7 @@ pub trait CmdResponse {
 pub struct OkResponse {}
 
 pub struct ClusterState {
-    pub nodes_to_ips: HashMap<NodeId, IpAddr>,
+    pub nodes_to_ips: HashMap<NodeId, SocketAddr>,
     pub buckets_to_nodes: HashMap<BucketId, NodeId>,
 }
 

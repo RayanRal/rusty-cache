@@ -19,7 +19,7 @@ pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_por
     let shared_cache = Arc::new(Mutex::new(cache));
     let client_cache_clone = Arc::clone(&shared_cache);
 
-    thread::spawn(move || {
+    let client_threads = thread::spawn(move || {
         let client_pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
         for stream in client_listener.incoming() {
             let client_cache_clone_per_connection = Arc::clone(&client_cache_clone);
@@ -29,7 +29,7 @@ pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_por
             });
         }
     });
-    thread::spawn(move || {
+    let server_threads = thread::spawn(move || {
         let server_pool = ThreadPoolBuilder::new().num_threads(2).build().unwrap();
         for stream in server_listener.incoming() {
             let server_cluster_status_per_connection = Arc::clone(&server_cluster);
@@ -38,7 +38,9 @@ pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_por
             });
         }
     });
-    // if it's a secondary node, it needs also to connect to root server and send "join cluster" command
+
+    client_threads.join().unwrap();
+    server_threads.join().unwrap();
 }
 
 fn handle_client_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>, cache: Arc<Mutex<Cache>>) {
@@ -80,6 +82,6 @@ fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
     }
 }
 
-// fn handle_cluster_join(main_node_ip: IpAddr) {
-// 
+// fn handle_cluster_join(leader_ip: IpAddr) {
+//
 // }

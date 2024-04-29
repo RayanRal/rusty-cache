@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, BufWriter};
-use std::net::{IpAddr, TcpStream};
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::sync::{Arc, Mutex};
 use log::info;
 use crate::server::{control_plane, requests};
@@ -21,11 +21,11 @@ pub struct Cluster {
 
 
 impl Cluster {
-    pub fn new(num_buckets: u64, self_node_id: NodeId, main_node_ip: Option<IpAddr>) -> Cluster {
+    pub fn new(num_buckets: u64, self_node_id: NodeId, leader_ip: Option<SocketAddr>) -> Cluster {
         let bucket_node_assignments = Arc::new(Mutex::new(HashMap::new()));
         let local_buckets_keys = Arc::new(Mutex::new(HashMap::new()));
         let node_connections = Arc::new(Mutex::new(HashMap::new()));
-        match main_node_ip {
+        match leader_ip {
             None => {
                 Self::init_self_bucket_nodes(&self_node_id, num_buckets, bucket_node_assignments.clone());
 
@@ -37,8 +37,8 @@ impl Cluster {
                     node_connections,
                 }
             }
-            Some(main_node) => {
-                let stream = TcpStream::connect(main_node.to_string()).expect("Failed to connect to server");
+            Some(leader_node) => {
+                let stream = TcpStream::connect(leader_node.to_string()).expect("Failed to connect to server");
                 let cluster_state = Self::request_cluster_state(stream.try_clone().unwrap());
                 Self::init_bucket_nodes(&cluster_state, bucket_node_assignments.clone(), node_connections.clone());
                 Self::join_cluster(&self_node_id, stream.try_clone().unwrap());
@@ -76,10 +76,10 @@ impl Cluster {
         local_buckets.get(&bucket_id).unwrap().clone()
     }
 
-    pub fn get_connected_nodes_ips(&self) -> HashMap<NodeId, IpAddr> {
+    pub fn get_connected_nodes_ips(&self) -> HashMap<NodeId, SocketAddr> {
         self.node_connections.lock().unwrap().iter().map(|(node_id, stream)| {
-            let ip_addr = stream.peer_addr().ok().unwrap().ip();
-            (node_id.to_string(), ip_addr)
+            let socket_addr = stream.peer_addr().unwrap();
+            (node_id.to_string(), socket_addr)
         }).collect()
     }
 
@@ -117,10 +117,10 @@ impl Cluster {
     }
 
     fn join_cluster(self_node_id: &NodeId, stream: TcpStream) {
-        // sends JoinCluster to one of the nodes (node_main)
-        // node_main assigns buckets to new node
-        // node_main sends UpdateClusterState request to all rest of nodes (to set new node responsible for those buckets)
-        // node_main responds to new node with list of keys it now handles
+        // sends JoinCluster to one of the nodes (leader)
+        // leader assigns buckets to new node
+        // leader sends UpdateClusterState request to all rest of nodes (to set new node responsible for those buckets)
+        // leader responds to new node with list of keys it now handles
         // new node may catch up on keys, but may as well ignore that
     }
 }
