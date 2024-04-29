@@ -20,9 +20,8 @@ fn main() {
     // let stream = TcpStream::connect(format!("{ip}:{port}"))?;
 
     let stream = TcpStream::connect("127.0.0.1:7878").expect("Failed to connect to server");
-    let stream_clone = stream.try_clone().unwrap();
-    let mut reader = BufReader::new(stream);
-    let mut writer = BufWriter::new(stream_clone);
+    let mut reader = BufReader::new(stream.try_clone().unwrap());
+    let mut writer = BufWriter::new(stream.try_clone().unwrap());
     loop {
         info!("Send the command to server: set, get, exists, exit");
         let mut request = String::new();

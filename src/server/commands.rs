@@ -6,9 +6,11 @@ use crate::server::commands::CommandsEnum::{GetClusterState, GetKeysForBucket, J
 
 pub enum CommandsEnum {
     JoinCluster {
-        server_id: NodeId,
+        node_id: NodeId,
     },
-    LeaveCluster {},
+    LeaveCluster {
+        node_id: NodeId,
+    },
     GetClusterState {},
     GetKeysForBucket {
         bucket_id: BucketId,
@@ -23,8 +25,8 @@ pub trait CmdResponse {
 pub struct OkResponse {}
 
 pub struct ClusterState {
-    pub nodes: HashMap<NodeId, IpAddr>,
-    pub nodes_to_buckets: HashMap<BucketId, NodeId>,
+    pub nodes_to_ips: HashMap<NodeId, IpAddr>,
+    pub buckets_to_nodes: HashMap<BucketId, NodeId>,
 }
 
 pub struct KeysListResponse {
@@ -50,26 +52,29 @@ impl CmdResponse for KeysListResponse {
 }
 
 pub fn deserialize_command(input: String) -> CommandsEnum {
-    let input_to_match = input.as_str();
-    match input_to_match {
-        "join" => {
-            let server_id = String::from("2");
-            JoinCluster { server_id }
-        }
-        "leave" => {
-            LeaveCluster {}
-        }
-        "state" => {
+    let parts: Vec<&str> = input.split_whitespace().collect();
+    let command = parts.first();
+
+    match command {
+        Some(&"get_cluster_state") => {
             GetClusterState {}
         }
-        "keys" => {
-            let bucket_id = 2;
+        Some(&"join") => {
+            let node_id = String::from(parts[1]);
+            JoinCluster { node_id }
+        }
+        Some(&"get_keys") => {
+            let bucket_id: BucketId = parts[1].parse::<u64>().unwrap();
             GetKeysForBucket {
                 bucket_id
             }
         }
+        Some(&"leave") => {
+            let node_id = String::from(parts[1]);
+            LeaveCluster { node_id }
+        }
         cmd => {
-            panic!("Command {cmd} not found.");
+            panic!("Command {cmd:?} not found.");
         }
     }
 }

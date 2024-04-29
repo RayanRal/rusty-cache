@@ -41,14 +41,9 @@ pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_por
     // if it's a secondary node, it needs also to connect to root server and send "join cluster" command
 }
 
-fn get_node_id(stream: &TcpStream) -> String {
-    stream.peer_addr().unwrap().ip().to_string()
-}
-
 fn handle_client_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>, cache: Arc<Mutex<Cache>>) {
-    let stream_clone = stream.try_clone().unwrap();
-    let mut reader = BufReader::new(stream);
-    let mut writer = BufWriter::new(stream_clone);
+    let mut reader = BufReader::new(stream.try_clone().unwrap());
+    let mut writer = BufWriter::new(stream.try_clone().unwrap());
     loop {
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
@@ -67,27 +62,24 @@ fn handle_client_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>, cac
 }
 
 fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
-    let stream_clone = stream.try_clone().unwrap();
-    let mut reader = BufReader::new(stream);
-    // let mut writer = BufWriter::new(stream_clone);
+    // let stream_clone = stream.try_clone().unwrap();
+    let mut reader = BufReader::new(stream.try_clone().unwrap());
+    let mut writer = BufWriter::new(stream.try_clone().unwrap());
     loop {
         let mut cluster = cluster.lock().unwrap();
         let mut s = String::new();
-        let stream_clones = stream_clone.try_clone().unwrap();
         reader.read_line(&mut s).unwrap();
         info!("Received cluster command: {s}");
         let command = commands::deserialize_command(s);
 
-        control_plane::process_cluster_command(command, &mut cluster, stream_clones);
-        // todo: for now let's not bother about responding to another node
-        // let mut response_str = response.serialize();
-        // response_str.push('\n');
-        // 
-        // writer.write_all(response_str.as_bytes()).unwrap();
-        // writer.flush().unwrap();
+        let response = control_plane::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
+        let mut response_str = response.serialize();
+        response_str.push('\n');
+        writer.write_all(response_str.as_bytes()).unwrap();
+        writer.flush().unwrap();
     }
 }
 
-fn handle_cluster_join(main_node_ip: IpAddr) {
-    
-}
+// fn handle_cluster_join(main_node_ip: IpAddr) {
+// 
+// }

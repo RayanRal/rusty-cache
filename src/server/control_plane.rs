@@ -57,21 +57,21 @@ pub fn process_client_request(request: RequestsEnum, cache: &mut Cache, cluster:
     }
 }
 
-pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, tcp_stream: TcpStream) -> Box<dyn CmdResponse> {
+pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, connecting_node: TcpStream) -> Box<dyn CmdResponse> {
     match command {
-        CommandsEnum::JoinCluster { server_id } => {
-            cluster.add_node_connection(server_id, tcp_stream);
+        CommandsEnum::JoinCluster { node_id } => {
+            cluster.add_node_connection(node_id, connecting_node);
             Box::new(OkResponse {})
         }
-        CommandsEnum::LeaveCluster { .. } => { Box::new(OkResponse {}) }
         CommandsEnum::GetClusterState { .. } => {
-            let nodes = cluster.get_connected_nodes_ips();
-            let nodes_to_buckets = cluster.bucket_node_assignments.clone().lock().unwrap().clone();
-            Box::new(ClusterState { nodes, nodes_to_buckets })
+            let nodes_to_ips = cluster.get_connected_nodes_ips();
+            let buckets_to_nodes = cluster.get_bucket_node_assignments();
+            Box::new(ClusterState { nodes_to_ips, buckets_to_nodes })
         }
         CommandsEnum::GetKeysForBucket { bucket_id } => {
             let keys = cluster.get_all_keys_for_bucket(bucket_id);
             Box::new(KeysListResponse { keys })
         }
+        CommandsEnum::LeaveCluster { node_id } => { Box::new(OkResponse {}) }
     }
 }
