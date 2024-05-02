@@ -1,4 +1,5 @@
 use crate::server::cache::{Key, Value};
+use crate::server::requests::RequestsEnum::{Exists, Exit, Get, Put};
 
 pub enum RequestsEnum {
     Put {
@@ -13,6 +14,17 @@ pub enum RequestsEnum {
         key: Key,
     },
     Exit,
+}
+
+impl RequestsEnum {
+    pub fn serialize(&self) -> String {
+        match self {
+            Put { key, value, ttl } => { format!("put {key} {value} {ttl}") }
+            Get { key } => { format!("get {key}") }
+            Exists { key } => { format!("exists {key}") }
+            Exit {} => String::from("exit")
+        }
+    }
 }
 
 pub trait ReqResponse {

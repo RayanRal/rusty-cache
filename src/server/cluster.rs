@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::io::{BufRead, BufReader, BufWriter};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::sync::{Arc, Mutex};
 use log::info;
 use crate::server::{control_plane, requests};
 use crate::server::cache::Key;
 use crate::server::commands::ClusterState;
+use crate::server::commands::CommandsEnum::GetClusterState;
 
 pub type NodeId = String;
 pub type BucketId = u64;
@@ -38,10 +39,7 @@ impl Cluster {
                 }
             }
             Some(leader_node) => {
-                let stream = TcpStream::connect(leader_node.to_string()).expect("Failed to connect to server");
-                let cluster_state = Self::request_cluster_state(stream.try_clone().unwrap());
-                Self::init_bucket_nodes(&cluster_state, bucket_node_assignments.clone(), node_connections.clone());
-                Self::join_cluster(&self_node_id, stream.try_clone().unwrap());
+                Self::handle_cluster_join(&self_node_id, leader_node, bucket_node_assignments.clone(), node_connections.clone());
 
                 Cluster {
                     self_node_id,
@@ -83,6 +81,13 @@ impl Cluster {
         }).collect()
     }
 
+    fn handle_cluster_join(self_node_id: &NodeId, leader_node: SocketAddr, bucket_node_assignments: Arc<Mutex<HashMap<BucketId, NodeId>>>, node_connections: Arc<Mutex<HashMap<NodeId, TcpStream>>>) {
+        let stream = TcpStream::connect(leader_node.to_string()).expect("Failed to connect to server");
+        let cluster_state = Self::request_cluster_state(stream.try_clone().unwrap());
+        Self::init_bucket_nodes(&cluster_state, bucket_node_assignments.clone(), node_connections.clone());
+        Self::join_cluster(self_node_id, stream.try_clone().unwrap());
+    }
+
     fn get_bucket_for_key(&self, key: &Key) -> BucketId {
         calculate_hash(key) % self.num_buckets
     }
@@ -111,9 +116,16 @@ impl Cluster {
     fn request_cluster_state(stream: TcpStream) -> ClusterState {
         let mut reader = BufReader::new(stream.try_clone().unwrap());
         let mut writer = BufWriter::new(stream.try_clone().unwrap());
-        // let mut s = String::new();
-        // on init, new node first gets cluster state (ips of all existing nodes)
-        todo!()
+        let command = GetClusterState {};
+        let mut command_str = command.serialize();
+        command_str.push('\n');
+        writer.write_all(command_str.as_bytes()).unwrap();
+        writer.flush().unwrap();
+
+        let mut s = String::new();
+        reader.read_line(&mut s).unwrap();
+        info!("Received leader response: {s}");
+        crate::server::commands::deserialize_command(s)
     }
 
     fn join_cluster(self_node_id: &NodeId, stream: TcpStream) {

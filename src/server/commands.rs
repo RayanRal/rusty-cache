@@ -17,6 +17,17 @@ pub enum CommandsEnum {
     },
 }
 
+impl CommandsEnum {
+    pub(crate) fn serialize(&self) -> String {
+        match self {
+            JoinCluster { node_id } => { format!("join {node_id}") }
+            LeaveCluster { node_id } => { format!("leave {node_id}") }
+            GetClusterState {} => { "get_cluster_state".to_string() }
+            GetKeysForBucket { bucket_id } => format!("get_keys {bucket_id}")
+        }
+    }
+}
+
 
 pub trait CmdResponse {
     fn serialize(&self) -> String;
