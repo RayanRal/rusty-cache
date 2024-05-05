@@ -14,9 +14,9 @@ mod server {
 }
 
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::str::FromStr;
-use clap::{Parser};
+use clap::Parser;
 use crate::server::cache::Cache;
 use log::{info, LevelFilter};
 use env_logger::Builder;
@@ -29,7 +29,7 @@ use rand::distributions::{Alphanumeric, DistString};
 struct Cli {
     #[arg(long)]
     run_mode: String,
-    
+
     #[arg(long)]
     client_port: u32,
 

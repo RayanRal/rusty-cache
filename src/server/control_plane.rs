@@ -1,53 +1,46 @@
 use std::net::TcpStream;
 use log::warn;
 use crate::server::cache::Cache;
-use crate::server::commands::{ClusterState, CmdResponse, CommandsEnum, KeysListResponse, OkResponse};
-use crate::server::{requests};
 use crate::server::cluster::Cluster;
-use crate::server::requests::{CommandNotFoundResponse, RequestsEnum};
+use crate::server::commands::{CmdResponseEnum, CommandsEnum};
+use crate::server::requests::{ReqResponseEnum, RequestsEnum};
 
-pub fn process_client_request(request: RequestsEnum, cache: &mut Cache, cluster: &mut Cluster) -> Box<dyn requests::ReqResponse> {
+pub fn process_client_request(request: RequestsEnum, cache: &mut Cache, cluster: &mut Cluster) -> ReqResponseEnum {
     match request {
         RequestsEnum::Put { key, value, ttl } => {
             let is_key_local = cluster.is_key_local(&key);
             if is_key_local {
                 cache.put(&key, &value, ttl);
-                let response = requests::PutResponse {};
-                Box::new(response)
+                ReqResponseEnum::Put {}
             } else {
-                let target_node = cluster.get_node_for_key(&key);
+                let _target_node = cluster.get_node_for_key(&key);
                 // TODO: redirect put request to another node if necessary
-                let response = requests::PutResponse {};
-                Box::new(response)
+                ReqResponseEnum::Put {}
             }
         }
         RequestsEnum::Get { key } => {
             let is_key_local = cluster.is_key_local(&key);
             if is_key_local {
                 let value = cache.get(&key);
-                let response = requests::GetResponse {
+                ReqResponseEnum::Get {
                     key,
                     value,
-                };
-                Box::new(response)
+                }
             } else {
-                let target_node = cluster.get_node_for_key(&key);
+                let _target_node = cluster.get_node_for_key(&key);
                 // send a Get request to appropriate node
-                let response = CommandNotFoundResponse {};
-                Box::new(response)
+                ReqResponseEnum::CommandNotFound {}
             }
         }
         RequestsEnum::Exists { key } => {
             let is_key_local = cluster.is_key_local(&key);
             if is_key_local {
                 let exists = cache.exists(&key);
-                let response = requests::ExistsResponse { exists };
-                Box::new(response)
+                ReqResponseEnum::Exists { exists }
             } else {
-                let target_node = cluster.get_node_for_key(&key);
+                let _target_node = cluster.get_node_for_key(&key);
                 // send an Exists request to appropriate node
-                let response = CommandNotFoundResponse {};
-                Box::new(response)
+                ReqResponseEnum::CommandNotFound {}
             }
         }
         RequestsEnum::Exit {} => {
@@ -57,21 +50,21 @@ pub fn process_client_request(request: RequestsEnum, cache: &mut Cache, cluster:
     }
 }
 
-pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, connecting_node: TcpStream) -> Box<dyn CmdResponse> {
+pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, connecting_node: TcpStream) -> CmdResponseEnum {
     match command {
         CommandsEnum::JoinCluster { node_id } => {
             cluster.add_node_connection(node_id, connecting_node);
-            Box::new(OkResponse {})
+            CmdResponseEnum::Ok
         }
         CommandsEnum::GetClusterState { .. } => {
             let nodes_to_ips = cluster.get_connected_nodes_ips();
             let buckets_to_nodes = cluster.get_bucket_node_assignments();
-            Box::new(ClusterState { nodes_to_ips, buckets_to_nodes })
+            CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes }
         }
         CommandsEnum::GetKeysForBucket { bucket_id } => {
             let keys = cluster.get_all_keys_for_bucket(bucket_id);
-            Box::new(KeysListResponse { keys })
+            CmdResponseEnum::KeysList { keys }
         }
-        CommandsEnum::LeaveCluster { node_id } => { Box::new(OkResponse {}) }
+        CommandsEnum::LeaveCluster { node_id } => { CmdResponseEnum::Ok }
     }
 }

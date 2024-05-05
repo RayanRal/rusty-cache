@@ -1,12 +1,13 @@
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::net::{IpAddr, TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use log::info;
 use rayon::ThreadPoolBuilder;
 use crate::server::cache::Cache;
-use crate::server::{requests, control_plane, commands};
+use crate::server::{requests, control_plane};
 use crate::server::cluster::Cluster;
+use crate::server::commands::CommandsEnum;
 
 pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_port: u32) {
     let client_listener = TcpListener::bind(format!("127.0.0.1:{client_port}")).unwrap();
@@ -55,7 +56,7 @@ fn handle_client_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>, cac
         let mut cache = cache.lock().unwrap();
         let mut cluster = cluster.lock().unwrap();
         let response = control_plane::process_client_request(request, &mut cache, &mut cluster);
-        let mut response_str = response.serialize();
+        let mut response_str = serde_json::to_string(&response).unwrap();
         response_str.push('\n');
 
         writer.write_all(response_str.as_bytes()).unwrap();
@@ -72,10 +73,10 @@ fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
         info!("Received cluster command: {s}");
-        let command = commands::deserialize_command(s);
+        let command: CommandsEnum = serde_json::from_str(&s).unwrap();  //commands::deserialize_command(s);
 
         let response = control_plane::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
-        let mut response_str = response.serialize();
+        let mut response_str = serde_json::to_string(&response).unwrap();
         response_str.push('\n');
         writer.write_all(response_str.as_bytes()).unwrap();
         writer.flush().unwrap();

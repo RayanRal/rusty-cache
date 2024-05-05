@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use crate::server::cache::{Key, Value};
-use crate::server::requests::RequestsEnum::{Exists, Exit, Get, Put};
 
+#[derive(Debug, Serialize, Deserialize)]
 pub enum RequestsEnum {
     Put {
         key: Key,
@@ -16,70 +17,84 @@ pub enum RequestsEnum {
     Exit,
 }
 
-impl RequestsEnum {
-    pub fn serialize(&self) -> String {
-        match self {
-            Put { key, value, ttl } => { format!("put {key} {value} {ttl}") }
-            Get { key } => { format!("get {key}") }
-            Exists { key } => { format!("exists {key}") }
-            Exit {} => String::from("exit")
-        }
-    }
+// impl RequestsEnum {
+//     pub fn serialize(&self) -> String {
+//         match self {
+//             Put { key, value, ttl } => { format!("put {key} {value} {ttl}") }
+//             Get { key } => { format!("get {key}") }
+//             Exists { key } => { format!("exists {key}") }
+//             Exit {} => String::from("exit")
+//         }
+//     }
+// }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ReqResponseEnum {
+    Put,
+    Get {
+        key: Key,
+        value: Option<Value>,
+    },
+    Exists {
+        exists: bool,
+    },
+    CommandNotFound {},
+    // fn serialize(&self) -> String;
 }
 
-pub trait ReqResponse {
-    fn serialize(&self) -> String;
-}
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct PutResponse {}
+// 
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct GetResponse {
+//     pub key: Key,
+//     pub value: Option<Value>,
+// }
+// 
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct ExistsResponse {
+//     pub exists: bool,
+// }
+// 
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct CommandNotFoundResponse {}
 
-pub struct PutResponse {}
+// impl ReqResponse for PutResponse {
+    // fn serialize(&self) -> String {
+    //     String::from("OK")
+    // }
+// }
 
-pub struct GetResponse {
-    pub key: Key,
-    pub value: Option<Value>,
-}
-
-pub struct ExistsResponse {
-    pub exists: bool,
-}
-
-pub struct CommandNotFoundResponse {}
-
-impl ReqResponse for PutResponse {
-    fn serialize(&self) -> String {
-        String::from("OK")
-    }
-}
-
-impl ReqResponse for GetResponse {
-    fn serialize(&self) -> String {
-        match &self.value {
-            Some(v) => {
-                format!("Got {}", v)
-            }
-            None => {
-                String::from("Key not found")
-            }
-        }
-    }
-}
+// impl ReqResponse for GetResponse {
+    // fn serialize(&self) -> String {
+    //     match &self.value {
+    //         Some(v) => {
+    //             format!("Got {}", v)
+    //         }
+    //         None => {
+    //             String::from("Key not found")
+    //         }
+    //     }
+    // }
+// }
 
 
-impl ReqResponse for ExistsResponse {
-    fn serialize(&self) -> String {
-        match &self.exists {
-            true => {
-                String::from("OK")
-            }
-            false => String::from("Key not found")
-        }
-    }
-}
+// impl ReqResponse for ExistsResponse {
+    // fn serialize(&self) -> String {
+    //     match &self.exists {
+    //         true => {
+    //             String::from("OK")
+    //         }
+    //         false => String::from("Key not found")
+    //     }
+    // }
+// }
 
-impl ReqResponse for CommandNotFoundResponse {
-    fn serialize(&self) -> String {
-        String::from("Command not found")
-    }
-}
+// impl ReqResponse for CommandNotFoundResponse {
+    // fn serialize(&self) -> String {
+    //     String::from("Command not found")
+    // }
+// }
 
 pub const DEFAULT_TTL: u64 = 60;
 
