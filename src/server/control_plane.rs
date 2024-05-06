@@ -65,6 +65,9 @@ pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, con
             let buckets_to_nodes = cluster.get_bucket_node_assignments();
             CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes }
         }
-        CommandsEnum::LeaveCluster { node_id } => { CmdResponseEnum::Ok }
+        CommandsEnum::LeaveCluster { node_id } => { 
+            warn!("Node {node_id} leaves the cluster");
+            CmdResponseEnum::Ok 
+        }
     }
 }

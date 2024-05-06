@@ -3,7 +3,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::{Arc, Mutex};
-use log::{error, info};
+use log::{error, info, warn};
 use crate::server::cache::Key;
 use crate::server::commands::CmdResponseEnum;
 use crate::server::commands::CommandsEnum::{GetClusterState, JoinCluster};
@@ -67,11 +67,6 @@ impl Cluster {
         self.bucket_node_assignments.lock().unwrap().clone()
     }
 
-    pub fn get_all_keys_for_bucket(&self, bucket_id: BucketId) -> Vec<Key> {
-        let local_buckets = self.local_buckets_keys.lock().unwrap();
-        local_buckets.get(&bucket_id).unwrap().clone()
-    }
-
     pub fn get_connected_nodes_ips(&self) -> HashMap<NodeId, SocketAddr> {
         self.node_connections.lock().unwrap().iter().map(|(node_id, stream)| {
             let socket_addr = stream.peer_addr().unwrap();
@@ -86,26 +81,19 @@ impl Cluster {
         }
         let mut sorted_nodes: Vec<_> = nodes_to_buckets.into_iter().collect();
         sorted_nodes.sort_by_key(|(_, v)| v.len());
-        let (most_loaded_node, nodes_buckets) = sorted_nodes.get(0).unwrap();
-        let (no_buckets_node, _) =  sorted_nodes.last().unwrap();
+        let (_, nodes_buckets) = sorted_nodes.first().unwrap();
+        let (no_buckets_node, _) = sorted_nodes.last().unwrap();
         let buckets_to_transfer = &nodes_buckets[..(nodes_buckets.len() / 2)];
         for bucket_id in buckets_to_transfer {
             self.bucket_node_assignments.lock().unwrap().insert(*bucket_id, no_buckets_node.to_string());
         }
-        // nodes_to_buckets = sorted_nodes.into_iter().collect();
-        // check distribution of existing buckets to nodes
-        // find nodes with too many buckets
-        // take first half of those buckets
-        // take all keys from those buckets
-        // assign them to new node
-        // TODO: eventually update 
     }
 
     fn handle_cluster_join(self_node_id: &NodeId, leader_node: SocketAddr, bucket_node_assignments: Arc<Mutex<HashMap<BucketId, NodeId>>>, node_connections: Arc<Mutex<HashMap<NodeId, TcpStream>>>) {
         let stream = TcpStream::connect(leader_node.to_string()).expect("Failed to connect to server");
         let cluster_state = Self::request_cluster_state(stream.try_clone().unwrap());
         Self::init_bucket_nodes(&cluster_state, bucket_node_assignments.clone(), node_connections.clone());
-        Self::join_cluster(self_node_id, stream.try_clone().unwrap());
+        Self::join_cluster(self_node_id, stream.try_clone().unwrap(), bucket_node_assignments.clone());
     }
 
     fn get_bucket_for_key(&self, key: &Key) -> BucketId {
@@ -154,7 +142,7 @@ impl Cluster {
         serde_json::from_str(&s).unwrap()
     }
 
-    fn join_cluster(self_node_id: &NodeId, stream: TcpStream) {
+    fn join_cluster(self_node_id: &NodeId, stream: TcpStream, bucket_nodes: Arc<Mutex<HashMap<BucketId, NodeId>>>) {
         let mut reader = BufReader::new(stream.try_clone().unwrap());
         let mut writer = BufWriter::new(stream.try_clone().unwrap());
         let command = JoinCluster { node_id: self_node_id.to_string() };
@@ -166,13 +154,22 @@ impl Cluster {
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
         info!("Received join cluster response: {s}");
-        match serde_json::from_str(&s).unwrap()  {
+        match serde_json::from_str(&s).unwrap() {
             CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes } => {
-                
+                let buckets_to_manage: Vec<BucketId> = buckets_to_nodes.iter()
+                    .filter(|(_, node_id)| { node_id == &self_node_id })
+                    .map(|(&key, _)| key)
+                    .collect();
+                info!("Node {self_node_id} will manage these buckets: {buckets_to_manage:?}");
+                for bucket in buckets_to_manage {
+                    bucket_nodes.lock().unwrap().insert(bucket, self_node_id.to_string());
+                }
             }
-            _ => {}
+            _ => {
+                warn!("Got incorrect response")
+            }
         }
-        
+
         // TODO: leader responds to node with list of keys it now handles - save them
     }
 }
