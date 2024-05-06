@@ -38,7 +38,6 @@ struct Cli {
 
     #[arg(long)]
     leader: Option<String>,
-
 }
 
 

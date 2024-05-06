@@ -2,12 +2,11 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use log::info;
+use log::{info, warn};
 use rayon::ThreadPoolBuilder;
 use crate::server::cache::Cache;
 use crate::server::{requests, control_plane};
 use crate::server::cluster::Cluster;
-use crate::server::commands::CommandsEnum;
 
 pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_port: u32) {
     let client_listener = TcpListener::bind(format!("127.0.0.1:{client_port}")).unwrap();
@@ -65,7 +64,6 @@ fn handle_client_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>, cac
 }
 
 fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
-    // let stream_clone = stream.try_clone().unwrap();
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut writer = BufWriter::new(stream.try_clone().unwrap());
     loop {
@@ -73,16 +71,17 @@ fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
         info!("Received cluster command: {s}");
-        let command: CommandsEnum = serde_json::from_str(&s).unwrap();  //commands::deserialize_command(s);
-
-        let response = control_plane::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
-        let mut response_str = serde_json::to_string(&response).unwrap();
-        response_str.push('\n');
-        writer.write_all(response_str.as_bytes()).unwrap();
-        writer.flush().unwrap();
+        match serde_json::from_str(&s) {
+            Ok(command) => {
+                let response = control_plane::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
+                let mut response_str = serde_json::to_string(&response).unwrap();
+                response_str.push('\n');
+                writer.write_all(response_str.as_bytes()).unwrap();
+                writer.flush().unwrap();
+            }
+            Err(_e) => {
+                warn!("Couldn't parse command: {s}")
+            }
+        }
     }
 }
-
-// fn handle_cluster_join(leader_ip: IpAddr) {
-//
-// }

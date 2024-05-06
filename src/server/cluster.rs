@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use log::{error, info};
 use crate::server::cache::Key;
 use crate::server::commands::CmdResponseEnum;
-use crate::server::commands::CommandsEnum::GetClusterState;
+use crate::server::commands::CommandsEnum::{GetClusterState, JoinCluster};
 
 pub type NodeId = String;
 pub type BucketId = u64;
@@ -18,7 +18,6 @@ pub struct Cluster {
     local_buckets_keys: Arc<Mutex<HashMap<BucketId, Vec<Key>>>>,
     node_connections: Arc<Mutex<HashMap<NodeId, TcpStream>>>,
 }
-
 
 impl Cluster {
     pub fn new(num_buckets: u64, self_node_id: NodeId, leader_ip: Option<SocketAddr>) -> Cluster {
@@ -80,6 +79,28 @@ impl Cluster {
         }).collect()
     }
 
+    pub fn redistribute_buckets(&self) {
+        let mut nodes_to_buckets: HashMap<NodeId, Vec<BucketId>> = HashMap::new();
+        for (bucket_id, node_id) in self.bucket_node_assignments.lock().unwrap().iter() {
+            nodes_to_buckets.entry(node_id.to_string()).or_insert_with(Vec::new).push(*bucket_id);
+        }
+        let mut sorted_nodes: Vec<_> = nodes_to_buckets.into_iter().collect();
+        sorted_nodes.sort_by_key(|(_, v)| v.len());
+        let (most_loaded_node, nodes_buckets) = sorted_nodes.get(0).unwrap();
+        let (no_buckets_node, _) =  sorted_nodes.last().unwrap();
+        let buckets_to_transfer = &nodes_buckets[..(nodes_buckets.len() / 2)];
+        for bucket_id in buckets_to_transfer {
+            self.bucket_node_assignments.lock().unwrap().insert(*bucket_id, no_buckets_node.to_string());
+        }
+        // nodes_to_buckets = sorted_nodes.into_iter().collect();
+        // check distribution of existing buckets to nodes
+        // find nodes with too many buckets
+        // take first half of those buckets
+        // take all keys from those buckets
+        // assign them to new node
+        // TODO: eventually update 
+    }
+
     fn handle_cluster_join(self_node_id: &NodeId, leader_node: SocketAddr, bucket_node_assignments: Arc<Mutex<HashMap<BucketId, NodeId>>>, node_connections: Arc<Mutex<HashMap<NodeId, TcpStream>>>) {
         let stream = TcpStream::connect(leader_node.to_string()).expect("Failed to connect to server");
         let cluster_state = Self::request_cluster_state(stream.try_clone().unwrap());
@@ -129,17 +150,30 @@ impl Cluster {
 
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
-        info!("Received leader response: {s}");
-        let r = serde_json::from_str(&s).unwrap();
-        return r;
+        info!("Received cluster state: {s}");
+        serde_json::from_str(&s).unwrap()
     }
 
-    fn join_cluster(_self_node_id: &NodeId, _stream: TcpStream) {
-        // sends JoinCluster to one of the nodes (leader)
-        // leader assigns buckets to new node
-        // leader sends UpdateClusterState request to all rest of nodes (to set new node responsible for those buckets)
-        // leader responds to new node with list of keys it now handles
-        // new node may catch up on keys, but may as well ignore that
+    fn join_cluster(self_node_id: &NodeId, stream: TcpStream) {
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut writer = BufWriter::new(stream.try_clone().unwrap());
+        let command = JoinCluster { node_id: self_node_id.to_string() };
+        let mut command_str = serde_json::to_string(&command).unwrap();
+        command_str.push('\n');
+        writer.write_all(command_str.as_bytes()).unwrap();
+        writer.flush().unwrap();
+
+        let mut s = String::new();
+        reader.read_line(&mut s).unwrap();
+        info!("Received join cluster response: {s}");
+        match serde_json::from_str(&s).unwrap()  {
+            CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes } => {
+                
+            }
+            _ => {}
+        }
+        
+        // TODO: leader responds to node with list of keys it now handles - save them
     }
 }
 

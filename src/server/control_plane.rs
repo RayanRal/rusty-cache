@@ -52,18 +52,18 @@ pub fn process_client_request(request: RequestsEnum, cache: &mut Cache, cluster:
 
 pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, connecting_node: TcpStream) -> CmdResponseEnum {
     match command {
-        CommandsEnum::JoinCluster { node_id } => {
-            cluster.add_node_connection(node_id, connecting_node);
-            CmdResponseEnum::Ok
+        CommandsEnum::JoinCluster { node_id: new_node_id } => {
+            cluster.add_node_connection(new_node_id, connecting_node);
+            let nodes_to_ips = cluster.get_connected_nodes_ips();
+            cluster.redistribute_buckets();
+            let buckets_to_nodes = cluster.get_bucket_node_assignments();
+            CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes }
+            // TODO: leader sends new ClusterState to all rest of nodes (to set new node responsible for those buckets)
         }
         CommandsEnum::GetClusterState { .. } => {
             let nodes_to_ips = cluster.get_connected_nodes_ips();
             let buckets_to_nodes = cluster.get_bucket_node_assignments();
             CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes }
-        }
-        CommandsEnum::GetKeysForBucket { bucket_id } => {
-            let keys = cluster.get_all_keys_for_bucket(bucket_id);
-            CmdResponseEnum::KeysList { keys }
         }
         CommandsEnum::LeaveCluster { node_id } => { CmdResponseEnum::Ok }
     }
