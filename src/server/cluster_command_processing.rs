@@ -11,7 +11,12 @@ pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, con
             nodes_to_ips.insert(cluster.self_node_id.to_string(), connection_stream.local_addr().unwrap());
             cluster.redistribute_buckets();
             let buckets_to_nodes = cluster.get_bucket_node_assignments();
-            // TODO: leader sends new ClusterState to all rest of nodes (to set new node responsible for those buckets)
+
+            let update_cluster_cmd = CommandsEnum::UpdateClusterState {
+                nodes_to_ips: nodes_to_ips.clone(),
+                buckets_to_nodes: buckets_to_nodes.clone(),
+            };
+            cluster.notify_cluster_nodes(update_cluster_cmd);
             CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes }
         }
         CommandsEnum::GetClusterState {} => {

@@ -5,7 +5,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use log::{error, info, warn};
 use crate::server::cache::Key;
-use crate::server::commands::CmdResponseEnum;
+use crate::server::commands::{CmdResponseEnum, CommandsEnum};
 use crate::server::commands::CommandsEnum::{GetClusterState, JoinCluster};
 
 pub type NodeId = String;
@@ -89,6 +89,17 @@ impl Cluster {
             let socket_addr = stream.peer_addr().unwrap();
             (node_id.to_string(), socket_addr)
         }).collect()
+    }
+
+    pub fn notify_cluster_nodes(&self, command: CommandsEnum) {
+        for (node_id, stream) in self.node_connections.lock().unwrap().iter() {
+            info!("Notifying {node_id}");
+            let mut writer = BufWriter::new(stream.try_clone().unwrap());
+            let mut command_str = serde_json::to_string(&command).unwrap();
+            command_str.push('\n');
+            writer.write_all(command_str.as_bytes()).unwrap();
+            writer.flush().unwrap();
+        }
     }
 
     pub fn redistribute_buckets(&self) {
