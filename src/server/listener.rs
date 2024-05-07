@@ -2,6 +2,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 use log::{info, warn};
 use rayon::ThreadPoolBuilder;
 use crate::server::cache::Cache;
@@ -67,21 +68,32 @@ fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
     let mut writer = BufWriter::new(stream.try_clone().unwrap());
     loop {
         let mut s = String::new();
-        reader.read_line(&mut s).unwrap();
-        info!("Received cluster command: {s}");
-        match serde_json::from_str(&s) {
-            Ok(command) => {
-                let mut cluster = cluster.lock().unwrap();
-                let response = cluster_command_processing::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
-                let mut response_str = serde_json::to_string(&response).unwrap();
-                response_str.push('\n');
+        match reader.read_line(&mut s) {
+            Ok(usize) => {
+                if usize == 0 {
+                    continue;
+                }
 
-                writer.write_all(response_str.as_bytes()).unwrap();
-                writer.flush().unwrap();
+                info!("Received cluster command: {s}");
+                match serde_json::from_str(&s) {
+                    Ok(command) => {
+                        let mut cluster = cluster.lock().unwrap();
+                        let response = cluster_command_processing::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
+                        let mut response_str = serde_json::to_string(&response).unwrap();
+                        response_str.push('\n');
+
+                        writer.write_all(response_str.as_bytes()).unwrap();
+                        writer.flush().unwrap();
+                    }
+                    Err(_e) => {
+                        warn!("Couldn't parse command: {s}")
+                    }
+                }
             }
-            Err(_e) => {
-                warn!("Couldn't parse command: {s}")
+            Err(_) => {
+                warn!("Error reading from stream")
             }
         }
+        thread::sleep(Duration::from_millis(100));
     }
 }

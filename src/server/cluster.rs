@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::net::{Shutdown, SocketAddr, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use log::{error, info, warn};
 use crate::server::cache::Key;
@@ -184,8 +184,6 @@ impl Cluster {
                 warn!("Got incorrect response")
             }
         }
-        stream.shutdown(Shutdown::Both).unwrap();
-        info!("Connection to server was shut down")
     }
 }
 
