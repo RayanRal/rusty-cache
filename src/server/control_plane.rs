@@ -50,18 +50,19 @@ pub fn process_client_request(request: RequestsEnum, cache: &mut Cache, cluster:
     }
 }
 
-pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, connecting_node: TcpStream) -> CmdResponseEnum {
+pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, connection_stream: TcpStream) -> CmdResponseEnum {
     match command {
         CommandsEnum::JoinCluster { node_id: new_node_id } => {
-            cluster.add_node_connection(new_node_id, connecting_node);
-            let nodes_to_ips = cluster.get_connected_nodes_ips();
+            cluster.add_node_connection(new_node_id.clone(), connection_stream.try_clone().unwrap());
+            let mut nodes_to_ips = cluster.get_cluster_node_ips();
+            nodes_to_ips.insert(cluster.self_node_id.to_string(), connection_stream.local_addr().unwrap());
             cluster.redistribute_buckets();
             let buckets_to_nodes = cluster.get_bucket_node_assignments();
             CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes }
             // TODO: leader sends new ClusterState to all rest of nodes (to set new node responsible for those buckets)
         }
         CommandsEnum::GetClusterState { .. } => {
-            let nodes_to_ips = cluster.get_connected_nodes_ips();
+            let nodes_to_ips = cluster.get_cluster_node_ips();
             let buckets_to_nodes = cluster.get_bucket_node_assignments();
             CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes }
         }

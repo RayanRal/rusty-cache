@@ -12,7 +12,7 @@ pub type NodeId = String;
 pub type BucketId = u64;
 
 pub struct Cluster {
-    self_node_id: NodeId,
+    pub self_node_id: NodeId,
     num_buckets: u64,
     bucket_node_assignments: Arc<Mutex<HashMap<BucketId, NodeId>>>,
     local_buckets_keys: Arc<Mutex<HashMap<BucketId, Vec<Key>>>>,
@@ -67,7 +67,7 @@ impl Cluster {
         self.bucket_node_assignments.lock().unwrap().clone()
     }
 
-    pub fn get_connected_nodes_ips(&self) -> HashMap<NodeId, SocketAddr> {
+    pub fn get_cluster_node_ips(&self) -> HashMap<NodeId, SocketAddr> {
         self.node_connections.lock().unwrap().iter().map(|(node_id, stream)| {
             let socket_addr = stream.peer_addr().unwrap();
             (node_id.to_string(), socket_addr)
@@ -75,17 +75,18 @@ impl Cluster {
     }
 
     pub fn redistribute_buckets(&self) {
-        let mut nodes_to_buckets: HashMap<NodeId, Vec<BucketId>> = HashMap::new();
-        for (bucket_id, node_id) in self.bucket_node_assignments.lock().unwrap().iter() {
-            nodes_to_buckets.entry(node_id.to_string()).or_insert_with(Vec::new).push(*bucket_id);
-        }
-        let mut sorted_nodes: Vec<_> = nodes_to_buckets.into_iter().collect();
-        sorted_nodes.sort_by_key(|(_, v)| v.len());
-        let (_, nodes_buckets) = sorted_nodes.first().unwrap();
-        let (no_buckets_node, _) = sorted_nodes.last().unwrap();
-        let buckets_to_transfer = &nodes_buckets[..(nodes_buckets.len() / 2)];
-        for bucket_id in buckets_to_transfer {
-            self.bucket_node_assignments.lock().unwrap().insert(*bucket_id, no_buckets_node.to_string());
+        let mut nodes: Vec<NodeId> = self.node_connections.lock().unwrap().keys().cloned().collect();
+        nodes.sort();
+        let mut buckets: Vec<BucketId> = self.bucket_node_assignments.lock().unwrap().keys().cloned().collect();
+        buckets.sort();
+        let buckets_per_node = buckets.len() / nodes.len();
+        let buckets_iter = buckets.chunks(buckets_per_node);
+        let mut bucket_nodes = self.bucket_node_assignments.lock().unwrap();
+        bucket_nodes.clear();
+        for (node_id, buckets) in nodes.iter().zip(buckets_iter) {
+            for bucket in buckets {
+                bucket_nodes.insert(*bucket, node_id.clone());    
+            }
         }
     }
 
@@ -111,17 +112,12 @@ impl Cluster {
         match cluster_state {
             CmdResponseEnum::ClusterState { buckets_to_nodes, nodes_to_ips } => {
                 // opens connections to all the existing nodes
-                // let mut buckets = bucket_nodes.lock().unwrap();
                 buckets_to_nodes.iter().for_each(|(bucket, node)| {
                     info!("Bucket {bucket} is handled by {node}");
                 });
                 nodes_to_ips.iter().for_each(|(node_id, ip)| {
                     info!("Node {node_id} has ip: {ip}");
                 });
-
-                // for bucket_id in 0..num_buckets {
-                //     buckets.insert(bucket_id, self_id.clone());
-                // }
             }
             _ => error!("")
         }

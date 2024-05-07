@@ -30,7 +30,7 @@ pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_por
         }
     });
     let server_threads = thread::spawn(move || {
-        let server_pool = ThreadPoolBuilder::new().num_threads(2).build().unwrap();
+        let server_pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
         for stream in server_listener.incoming() {
             let server_cluster_status_per_connection = Arc::clone(&server_cluster);
             server_pool.spawn(move || {
