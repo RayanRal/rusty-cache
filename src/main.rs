@@ -4,7 +4,9 @@ mod server {
 
     pub mod cache;
 
-    mod control_plane;
+    mod cluster_request_processing;
+
+    mod cluster_commands_processing;
 
     mod requests;
 

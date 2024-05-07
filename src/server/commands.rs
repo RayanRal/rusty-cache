@@ -13,10 +13,10 @@ pub enum CommandsEnum {
         node_id: NodeId,
     },
     GetClusterState {},
-    // TODO: I'm not sure if that would ever be used
-    // GetKeysForBucket {
-    //     bucket_id: BucketId,
-    // },
+    UpdateClusterState {
+        nodes_to_ips: HashMap<NodeId, SocketAddr>,
+        buckets_to_nodes: HashMap<BucketId, NodeId>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]

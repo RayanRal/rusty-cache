@@ -15,15 +15,34 @@ pub struct Cluster {
     pub self_node_id: NodeId,
     num_buckets: u64,
     bucket_node_assignments: Arc<Mutex<HashMap<BucketId, NodeId>>>,
-    local_buckets_keys: Arc<Mutex<HashMap<BucketId, Vec<Key>>>>,
     node_connections: Arc<Mutex<HashMap<NodeId, TcpStream>>>,
+}
+
+impl Cluster {
+    pub fn update_cluster_state(&self, nodes_to_ips_updated: HashMap<NodeId, SocketAddr>, buckets_to_nodes_updated: HashMap<BucketId, NodeId>) {
+        // updating node connections
+        for node in self.node_connections.lock().unwrap().keys() {
+            if !nodes_to_ips_updated.contains_key(node) {
+                self.node_connections.lock().unwrap().remove(node);
+            }
+        }
+        for (node, addr) in nodes_to_ips_updated {
+            self.node_connections.lock().unwrap().entry(node).or_insert_with(|| {
+                TcpStream::connect(addr).expect("Couldn't connect to new node")
+            });
+        }
+        // updating buckets
+        for (bucket, node) in buckets_to_nodes_updated {
+            self.bucket_node_assignments.lock().unwrap().insert(bucket, node);
+        }
+    }
 }
 
 impl Cluster {
     pub fn new(num_buckets: u64, self_node_id: NodeId, leader_ip: Option<SocketAddr>) -> Cluster {
         let bucket_node_assignments = Arc::new(Mutex::new(HashMap::new()));
-        let local_buckets_keys = Arc::new(Mutex::new(HashMap::new()));
         let node_connections = Arc::new(Mutex::new(HashMap::new()));
+
         match leader_ip {
             None => {
                 Self::init_self_bucket_nodes(&self_node_id, num_buckets, bucket_node_assignments.clone());
@@ -32,7 +51,6 @@ impl Cluster {
                     self_node_id,
                     num_buckets,
                     bucket_node_assignments,
-                    local_buckets_keys,
                     node_connections,
                 }
             }
@@ -43,7 +61,6 @@ impl Cluster {
                     self_node_id,
                     num_buckets,
                     bucket_node_assignments,
-                    local_buckets_keys,
                     node_connections,
                 }
             }
@@ -76,16 +93,17 @@ impl Cluster {
 
     pub fn redistribute_buckets(&self) {
         let mut nodes: Vec<NodeId> = self.node_connections.lock().unwrap().keys().cloned().collect();
+        nodes.push(self.self_node_id.to_string());
         nodes.sort();
         let mut buckets: Vec<BucketId> = self.bucket_node_assignments.lock().unwrap().keys().cloned().collect();
         buckets.sort();
+        info!("redistributing nodes: {nodes:?}, buckets: {buckets:?}");
         let buckets_per_node = buckets.len() / nodes.len();
         let buckets_iter = buckets.chunks(buckets_per_node);
-        let mut bucket_nodes = self.bucket_node_assignments.lock().unwrap();
-        bucket_nodes.clear();
+        self.bucket_node_assignments.lock().unwrap().clear();
         for (node_id, buckets) in nodes.iter().zip(buckets_iter) {
             for bucket in buckets {
-                bucket_nodes.insert(*bucket, node_id.clone());    
+                self.bucket_node_assignments.lock().unwrap().insert(*bucket, node_id.clone());
             }
         }
     }
@@ -157,16 +175,15 @@ impl Cluster {
                     .map(|(&key, _)| key)
                     .collect();
                 info!("Node {self_node_id} will manage these buckets: {buckets_to_manage:?}");
+                let mut bucket_nodes_cur = bucket_nodes.lock().unwrap();
                 for bucket in buckets_to_manage {
-                    bucket_nodes.lock().unwrap().insert(bucket, self_node_id.to_string());
+                    bucket_nodes_cur.insert(bucket, self_node_id.to_string());
                 }
             }
             _ => {
                 warn!("Got incorrect response")
             }
         }
-
-        // TODO: leader responds to node with list of keys it now handles - save them
     }
 }
 

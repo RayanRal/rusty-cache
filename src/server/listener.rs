@@ -5,7 +5,7 @@ use std::thread;
 use log::{info, warn};
 use rayon::ThreadPoolBuilder;
 use crate::server::cache::Cache;
-use crate::server::control_plane;
+use crate::server::cluster_request_processing;
 use crate::server::cluster::Cluster;
 
 pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_port: u32) {
@@ -54,7 +54,7 @@ fn handle_client_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>, cac
 
         let mut cache = cache.lock().unwrap();
         let mut cluster = cluster.lock().unwrap();
-        let response = control_plane::process_client_request(request, &mut cache, &mut cluster);
+        let response = cluster_request_processing::process_client_request(request, &mut cache, &mut cluster);
         let mut response_str = serde_json::to_string(&response).unwrap();
         response_str.push('\n');
 
@@ -67,15 +67,16 @@ fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut writer = BufWriter::new(stream.try_clone().unwrap());
     loop {
-        let mut cluster = cluster.lock().unwrap();
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
         info!("Received cluster command: {s}");
         match serde_json::from_str(&s) {
             Ok(command) => {
-                let response = control_plane::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
+                let mut cluster = cluster.lock().unwrap();
+                let response = cluster_request_processing::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
                 let mut response_str = serde_json::to_string(&response).unwrap();
                 response_str.push('\n');
+                
                 writer.write_all(response_str.as_bytes()).unwrap();
                 writer.flush().unwrap();
             }
