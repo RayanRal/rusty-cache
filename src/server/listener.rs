@@ -5,7 +5,7 @@ use std::thread;
 use log::{info, warn};
 use rayon::ThreadPoolBuilder;
 use crate::server::cache::Cache;
-use crate::server::cluster_request_processing;
+use crate::server::{cluster_command_processing, user_request_processing};
 use crate::server::cluster::Cluster;
 
 pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_port: u32) {
@@ -17,12 +17,11 @@ pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_por
     let server_cluster = Arc::clone(&cluster_state);
 
     let shared_cache = Arc::new(Mutex::new(cache));
-    let client_cache_clone = Arc::clone(&shared_cache);
 
     let client_threads = thread::spawn(move || {
         let client_pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
         for stream in client_listener.incoming() {
-            let client_cache_clone_per_connection = Arc::clone(&client_cache_clone);
+            let client_cache_clone_per_connection = Arc::clone(&shared_cache);
             let client_cluster_status_per_connection = Arc::clone(&client_cluster);
             client_pool.spawn(move || {
                 handle_client_connection(stream.unwrap(), client_cluster_status_per_connection, client_cache_clone_per_connection);
@@ -54,7 +53,7 @@ fn handle_client_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>, cac
 
         let mut cache = cache.lock().unwrap();
         let mut cluster = cluster.lock().unwrap();
-        let response = cluster_request_processing::process_client_request(request, &mut cache, &mut cluster);
+        let response = user_request_processing::process_client_request(request, &mut cache, &mut cluster);
         let mut response_str = serde_json::to_string(&response).unwrap();
         response_str.push('\n');
 
@@ -73,10 +72,10 @@ fn handle_server_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>) {
         match serde_json::from_str(&s) {
             Ok(command) => {
                 let mut cluster = cluster.lock().unwrap();
-                let response = cluster_request_processing::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
+                let response = cluster_command_processing::process_cluster_command(command, &mut cluster, stream.try_clone().unwrap());
                 let mut response_str = serde_json::to_string(&response).unwrap();
                 response_str.push('\n');
-                
+
                 writer.write_all(response_str.as_bytes()).unwrap();
                 writer.flush().unwrap();
             }

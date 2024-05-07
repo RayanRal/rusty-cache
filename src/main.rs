@@ -4,9 +4,9 @@ mod server {
 
     pub mod cache;
 
-    mod cluster_request_processing;
+    mod user_request_processing;
 
-    mod cluster_commands_processing;
+    mod cluster_command_processing;
 
     mod requests;
 

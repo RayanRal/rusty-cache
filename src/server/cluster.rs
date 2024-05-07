@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::net::{SocketAddr, TcpStream};
+use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use log::{error, info, warn};
 use crate::server::cache::Key;
@@ -157,7 +157,6 @@ impl Cluster {
     }
 
     fn join_cluster(self_node_id: &NodeId, stream: TcpStream, bucket_nodes: Arc<Mutex<HashMap<BucketId, NodeId>>>) {
-        let mut reader = BufReader::new(stream.try_clone().unwrap());
         let mut writer = BufWriter::new(stream.try_clone().unwrap());
         let command = JoinCluster { node_id: self_node_id.to_string() };
         let mut command_str = serde_json::to_string(&command).unwrap();
@@ -165,6 +164,7 @@ impl Cluster {
         writer.write_all(command_str.as_bytes()).unwrap();
         writer.flush().unwrap();
 
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
         info!("Received join cluster response: {s}");
@@ -184,6 +184,8 @@ impl Cluster {
                 warn!("Got incorrect response")
             }
         }
+        stream.shutdown(Shutdown::Both).unwrap();
+        info!("Connection to server was shut down")
     }
 }
 
