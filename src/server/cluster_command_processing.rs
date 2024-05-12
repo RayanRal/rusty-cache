@@ -3,7 +3,10 @@ use log::warn;
 use crate::server::cluster::Cluster;
 use crate::server::commands::{CmdResponseEnum, CommandsEnum};
 
-pub fn process_cluster_command(command: CommandsEnum, cluster: &mut Cluster, connection_stream: TcpStream) -> CmdResponseEnum {
+pub fn process_cluster_command(command: CommandsEnum, 
+                               cluster: &mut Cluster, 
+                               connection_stream: TcpStream
+) -> CmdResponseEnum {
     match command {
         CommandsEnum::JoinCluster { node_id: new_node_id } => {
             cluster.add_node_connection(new_node_id.clone(), connection_stream.try_clone().unwrap());

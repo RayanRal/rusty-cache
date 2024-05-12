@@ -15,11 +15,14 @@ pub struct Cluster {
     pub self_node_id: NodeId,
     num_buckets: u64,
     bucket_node_assignments: Arc<Mutex<HashMap<BucketId, NodeId>>>,
-    node_connections: Arc<Mutex<HashMap<NodeId, TcpStream>>>,
+    node_connections: Arc<Mutex<HashMap<NodeId, Arc<Mutex<TcpStream>>>>>,
 }
 
 impl Cluster {
-    pub fn update_cluster_state(&self, nodes_to_ips_updated: HashMap<NodeId, SocketAddr>, buckets_to_nodes_updated: HashMap<BucketId, NodeId>) {
+    pub fn update_cluster_state(&self,
+                                nodes_to_ips_updated: HashMap<NodeId, SocketAddr>,
+                                buckets_to_nodes_updated: HashMap<BucketId, NodeId>,
+    ) {
         // updating node connections
         for node in self.node_connections.lock().unwrap().keys() {
             if !nodes_to_ips_updated.contains_key(node) {
@@ -28,7 +31,7 @@ impl Cluster {
         }
         for (node, addr) in nodes_to_ips_updated {
             self.node_connections.lock().unwrap().entry(node).or_insert_with(|| {
-                TcpStream::connect(addr).expect("Couldn't connect to new node")
+                Arc::new(Mutex::new(TcpStream::connect(addr).expect("Couldn't connect to new node")))
             });
         }
         // updating buckets
@@ -77,7 +80,7 @@ impl Cluster {
     }
 
     pub fn add_node_connection(&mut self, node_id: NodeId, connection: TcpStream) {
-        self.node_connections.lock().unwrap().insert(node_id, connection);
+        self.node_connections.lock().unwrap().insert(node_id, Arc::new(Mutex::new(connection)));
     }
 
     pub fn get_bucket_node_assignments(&self) -> HashMap<BucketId, NodeId> {
@@ -85,16 +88,18 @@ impl Cluster {
     }
 
     pub fn get_cluster_node_ips(&self) -> HashMap<NodeId, SocketAddr> {
-        self.node_connections.lock().unwrap().iter().map(|(node_id, stream)| {
+        self.node_connections.lock().unwrap().iter().map(|(node_id, arc_stream)| {
+            let stream = arc_stream.lock().unwrap();
             let socket_addr = stream.peer_addr().unwrap();
             (node_id.to_string(), socket_addr)
         }).collect()
     }
 
     pub fn notify_cluster_nodes(&self, command: CommandsEnum) {
-        for (node_id, stream) in self.node_connections.lock().unwrap().iter() {
+        for (node_id, arc_stream) in self.node_connections.lock().unwrap().iter() {
             info!("Notifying {node_id}");
-            let mut writer = BufWriter::new(stream.try_clone().unwrap());
+            let stream = arc_stream.lock().unwrap().try_clone().unwrap();
+            let mut writer = BufWriter::new(stream);
             let mut command_str = serde_json::to_string(&command).unwrap();
             command_str.push('\n');
             writer.write_all(command_str.as_bytes()).unwrap();
@@ -119,10 +124,19 @@ impl Cluster {
         }
     }
 
-    fn handle_cluster_join(self_node_id: &NodeId, leader_node: SocketAddr, bucket_node_assignments: Arc<Mutex<HashMap<BucketId, NodeId>>>, node_connections: Arc<Mutex<HashMap<NodeId, TcpStream>>>) {
+    pub fn get_node_connection(&self, target_node: &NodeId) -> Option<Arc<Mutex<TcpStream>>> {
+        self.node_connections.lock().unwrap()
+            .get(target_node).cloned()
+    }
+
+    fn handle_cluster_join(self_node_id: &NodeId,
+                           leader_node: SocketAddr,
+                           bucket_node_assignments: Arc<Mutex<HashMap<BucketId, NodeId>>>,
+                           node_connections: Arc<Mutex<HashMap<NodeId, Arc<Mutex<TcpStream>>>>>,
+    ) {
         let stream = TcpStream::connect(leader_node.to_string()).expect("Failed to connect to server");
         let cluster_state = Self::request_cluster_state(stream.try_clone().unwrap());
-        Self::init_bucket_nodes(&cluster_state, bucket_node_assignments.clone(), node_connections.clone());
+        Self::init_bucket_nodes(self_node_id, &cluster_state, bucket_node_assignments.clone(), node_connections.clone());
         Self::join_cluster(self_node_id, stream.try_clone().unwrap(), bucket_node_assignments.clone());
     }
 
@@ -130,22 +144,32 @@ impl Cluster {
         calculate_hash(key) % self.num_buckets
     }
 
-    fn init_self_bucket_nodes(self_id: &NodeId, num_buckets: u64, bucket_nodes: Arc<Mutex<HashMap<BucketId, NodeId>>>) {
+    fn init_self_bucket_nodes(self_id: &NodeId,
+                              num_buckets: u64,
+                              bucket_nodes: Arc<Mutex<HashMap<BucketId, NodeId>>>,
+    ) {
         let mut buckets = bucket_nodes.lock().unwrap();
         for bucket_id in 0..num_buckets {
             buckets.insert(bucket_id, self_id.clone());
         }
     }
 
-    fn init_bucket_nodes(cluster_state: &CmdResponseEnum, _self_bucket_nodes: Arc<Mutex<HashMap<BucketId, NodeId>>>, _self_node_connections: Arc<Mutex<HashMap<NodeId, TcpStream>>>) {
+    fn init_bucket_nodes(self_id: &NodeId,
+                         cluster_state: &CmdResponseEnum,
+                         self_bucket_nodes: Arc<Mutex<HashMap<BucketId, NodeId>>>,
+                         self_node_connections: Arc<Mutex<HashMap<NodeId, Arc<Mutex<TcpStream>>>>>,
+    ) {
         match cluster_state {
             CmdResponseEnum::ClusterState { buckets_to_nodes, nodes_to_ips } => {
                 // opens connections to all the existing nodes
                 buckets_to_nodes.iter().for_each(|(bucket, node)| {
-                    info!("Bucket {bucket} is handled by {node}");
+                    info!("{self_id}.init_bucket_nodes: Bucket {bucket} is handled by {node}");
+                    self_bucket_nodes.lock().unwrap().insert(*bucket, node.clone());
                 });
-                nodes_to_ips.iter().for_each(|(node_id, ip)| {
-                    info!("Node {node_id} has ip: {ip}");
+                nodes_to_ips.iter().for_each(|(node, ip)| {
+                    info!("{self_id}.init_bucket_nodes: Node {node} has ip: {ip}");
+                    let connection = TcpStream::connect(ip).expect("Failed to connect to node");
+                    self_node_connections.lock().unwrap().insert(node.clone(), Arc::new(Mutex::new(connection)));
                 });
             }
             _ => error!("")
@@ -167,7 +191,10 @@ impl Cluster {
         serde_json::from_str(&s).unwrap()
     }
 
-    fn join_cluster(self_node_id: &NodeId, stream: TcpStream, bucket_nodes: Arc<Mutex<HashMap<BucketId, NodeId>>>) {
+    fn join_cluster(self_node_id: &NodeId,
+                    stream: TcpStream,
+                    bucket_nodes: Arc<Mutex<HashMap<BucketId, NodeId>>>,
+    ) {
         let mut writer = BufWriter::new(stream.try_clone().unwrap());
         let command = JoinCluster { node_id: self_node_id.to_string() };
         let mut command_str = serde_json::to_string(&command).unwrap();

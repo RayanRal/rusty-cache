@@ -26,6 +26,7 @@ fn main() {
         info!("Send the command to server: set, get, exists, exit");
         let mut request = String::new();
         io::stdin().read_line(&mut request).unwrap();
+        // TODO: provide an easier interface to provide commands (not json)
         writer.write_all(request.as_bytes()).unwrap();
         writer.flush().unwrap();
 

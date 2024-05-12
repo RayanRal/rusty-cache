@@ -9,7 +9,11 @@ use crate::server::cache::Cache;
 use crate::server::{cluster_command_processing, user_request_processing};
 use crate::server::cluster::Cluster;
 
-pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_port: u32) {
+pub fn start_server(cache: Cache, 
+                    cluster: Cluster, 
+                    client_port: u32, 
+                    server_port: u32
+) {
     let client_listener = TcpListener::bind(format!("127.0.0.1:{client_port}")).unwrap();
     let server_listener = TcpListener::bind(format!("127.0.0.1:{server_port}")).unwrap();
 
@@ -44,7 +48,10 @@ pub fn start_server(cache: Cache, cluster: Cluster, client_port: u32, server_por
     server_threads.join().unwrap();
 }
 
-fn handle_client_connection(stream: TcpStream, cluster: Arc<Mutex<Cluster>>, cache: Arc<Mutex<Cache>>) {
+fn handle_client_connection(stream: TcpStream, 
+                            cluster: Arc<Mutex<Cluster>>, 
+                            cache: Arc<Mutex<Cache>>
+) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut writer = BufWriter::new(stream.try_clone().unwrap());
     loop {

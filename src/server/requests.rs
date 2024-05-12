@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use crate::server::cache::{Key, Value};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RequestsEnum {
     Put {
         key: Key,
@@ -27,8 +27,6 @@ pub enum ReqResponseEnum {
     Exists {
         exists: bool,
     },
-    CommandNotFound {},
+    ErrorProcessingCommand {},
 }
 
-
-pub const DEFAULT_TTL: u64 = 60;
