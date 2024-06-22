@@ -15,15 +15,14 @@ fn main() {
         return;
     }
 
-    // let ip = &args[1];
-    // let port = &args[2];
-    // let stream = TcpStream::connect(format!("{ip}:{port}"))?;
+    let ip = &args[1];
+    let port = &args[2];
+    let stream = TcpStream::connect(format!("{ip}:{port}")).expect("Failed to connect to server");
 
-    let stream = TcpStream::connect("127.0.0.1:7878").expect("Failed to connect to server");
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut writer = BufWriter::new(stream.try_clone().unwrap());
     loop {
-        info!("Send the command to server: set, get, exists, exit");
+        info!("Send the command to server in JSON: Put, Get, Exists, Exit");
         let mut request = String::new();
         io::stdin().read_line(&mut request).unwrap();
         // TODO: provide an easier interface to provide commands (not json)

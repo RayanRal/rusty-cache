@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use log::{error, info, warn};
 use crate::server::cache::Key;
 use crate::server::commands::{CmdResponseEnum, CommandsEnum};
-use crate::server::commands::CommandsEnum::{GetClusterState, JoinCluster};
+use crate::server::commands::CommandsEnum::{GetClusterState, JoinCluster, UpdateClusterState};
 
 pub type NodeId = String;
 pub type BucketId = u64;
@@ -207,7 +207,7 @@ impl Cluster {
         reader.read_line(&mut s).unwrap();
         info!("Received join cluster response: {s}");
         match serde_json::from_str(&s).unwrap() {
-            CmdResponseEnum::ClusterState { nodes_to_ips, buckets_to_nodes } => {
+            UpdateClusterState { nodes_to_ips, buckets_to_nodes } => {
                 let buckets_to_manage: Vec<BucketId> = buckets_to_nodes.iter()
                     .filter(|(_, node_id)| { node_id == &self_node_id })
                     .map(|(&key, _)| key)

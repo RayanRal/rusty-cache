@@ -9,6 +9,9 @@ use crate::server::cache::Cache;
 use crate::server::{cluster_command_processing, user_request_processing};
 use crate::server::cluster::Cluster;
 
+const CLIENT_THREADS: usize = 1;
+const SERVER_THREADS: usize = 3;
+
 pub fn start_server(cache: Cache, 
                     cluster: Cluster, 
                     client_port: u32, 
@@ -24,7 +27,7 @@ pub fn start_server(cache: Cache,
     let shared_cache = Arc::new(Mutex::new(cache));
 
     let client_threads = thread::spawn(move || {
-        let client_pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
+        let client_pool = ThreadPoolBuilder::new().num_threads(CLIENT_THREADS).build().unwrap();
         for stream in client_listener.incoming() {
             let client_cache_clone_per_connection = Arc::clone(&shared_cache);
             let client_cluster_status_per_connection = Arc::clone(&client_cluster);
@@ -35,7 +38,7 @@ pub fn start_server(cache: Cache,
     });
     let server_threads = thread::spawn(move || {
         // if new nodes never disconnect, we need at least number of threads = number of expected nodes
-        let server_pool = ThreadPoolBuilder::new().num_threads(2).build().unwrap();
+        let server_pool = ThreadPoolBuilder::new().num_threads(SERVER_THREADS).build().unwrap();
         for stream in server_listener.incoming() {
             let server_cluster_status_per_connection = Arc::clone(&server_cluster);
             server_pool.spawn(move || {
@@ -58,16 +61,21 @@ fn handle_client_connection(stream: TcpStream,
         let mut s = String::new();
         reader.read_line(&mut s).unwrap();
         info!("Received client request: {s}");
-        let request = serde_json::from_str(&s).unwrap();
+        match serde_json::from_str(&s) {
+            Ok(request) => {
+                let mut cache = cache.lock().unwrap();
+                let mut cluster = cluster.lock().unwrap();
+                let response = user_request_processing::process_client_request(request, &mut cache, &mut cluster);
+                let mut response_str = serde_json::to_string(&response).unwrap();
+                response_str.push('\n');
 
-        let mut cache = cache.lock().unwrap();
-        let mut cluster = cluster.lock().unwrap();
-        let response = user_request_processing::process_client_request(request, &mut cache, &mut cluster);
-        let mut response_str = serde_json::to_string(&response).unwrap();
-        response_str.push('\n');
-
-        writer.write_all(response_str.as_bytes()).unwrap();
-        writer.flush().unwrap();
+                writer.write_all(response_str.as_bytes()).unwrap();
+                writer.flush().unwrap();
+            }
+            Err(_e) => {
+                warn!("Couldn't parse client request: {s}")
+            }
+        }
     }
 }
 
